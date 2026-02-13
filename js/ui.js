@@ -17,15 +17,6 @@ function updateXsdType(type) {
   }
 }
 
-function changeMode(mode) {
-  if (mode == "text") {
-    document.getElementById("option_textarea").removeAttribute("hidden");
-    document.getElementById("option_url").setAttribute("hidden", "");
-  } else if (mode == "url") {
-    document.getElementById("option_url").removeAttribute("hidden");
-    document.getElementById("option_textarea").setAttribute("hidden", "");
-  }
-}
 
 async function fetchURL(url, save) {
   // Auto-add https:// if missing
@@ -80,6 +71,8 @@ async function fetchURL(url, save) {
     savedURLs[URLname] = { "url": url, "type": xsdType, "customtype": document.getElementById("custom_xsdType").value };
     localStorage.setItem("savedURLs", JSON.stringify(savedURLs));
     updateDropdown(savedURLs);
+    document.getElementById('saveURL_name').value = '';
+    document.getElementById('saveRow').hidden = true;
     return;
   }
 
@@ -156,4 +149,100 @@ async function errorToUser(error) {
   errorElement.removeAttribute("hidden");
   await new Promise(function (res) { setTimeout(res, 8000); });
   errorElement.setAttribute("hidden", "");
+}
+
+function clearAllSaved() {
+  if (!confirm('Clear all saved URLs from local storage?')) return;
+  localStorage.removeItem("savedURLs");
+  savedURLs = {};
+  updateDropdown(savedURLs);
+}
+
+function toggleSaveRow() {
+  var row = document.getElementById('saveRow');
+  row.hidden = !row.hidden;
+  if (!row.hidden) {
+    document.getElementById('saveURL_name').focus();
+  }
+}
+
+function goHome() {
+  // Reset state and show landing page
+  rootNodeIndex = 0;
+  Nodes = [{}];
+  ComplexTypes = [{}];
+  SimpleTypes = [{}];
+  SchemaKeys = [];
+  SchemaKeyRefs = [];
+  GlobalElements = [];
+  nLastClickedNodeIndex = 0;
+
+  document.getElementById('SchemaOptions').setAttribute('hidden', '');
+  document.getElementById('canvas-container').style.display = 'none';
+  document.getElementById('detail-sidebar').classList.remove('open');
+  document.getElementById('SearchResultDiv').setAttribute('hidden', '');
+  document.getElementById('breadcrumb').innerHTML = '';
+  document.getElementById('landing').removeAttribute('hidden');
+}
+
+function getNodeStyleHint(node) {
+  var hints = [];
+  var isRequired = node.minOccurs > 0;
+  var isMultiple = node.maxOccurs > 1 || node.maxOccurs < 0;
+
+  if (isRequired) {
+    hints.push('Solid blue border \u2014 this field is required (minOccurs \u2265 1)');
+  } else {
+    hints.push('Dashed grey border \u2014 this field is optional (minOccurs = 0)');
+  }
+
+  if (isMultiple) {
+    var maxStr = node.maxOccurs < 0 ? 'unbounded' : node.maxOccurs;
+    hints.push('Stacked cards \u2014 can occur multiple times (max: ' + maxStr + ')');
+  }
+
+  return hints.join('\n');
+}
+
+function exportCanvasAsPNG() {
+  if (!rootNodeIndex) return;
+
+  // Calculate tree bounds
+  var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (var i = 1; i < Nodes.length; i++) {
+    var n = Nodes[i];
+    if (n.visible === false || n.left === undefined) continue;
+    minX = Math.min(minX, n.left);
+    minY = Math.min(minY, n.top);
+    maxX = Math.max(maxX, n.left + (n.totalWidth || n.width));
+    maxY = Math.max(maxY, n.top + (n.totalHeight || n.height));
+  }
+  if (minX === Infinity) return;
+
+  var padding = 60;
+  var scale = 2; // 2x for sharp zoom
+  var w = (maxX - minX) + padding * 2;
+  var h = (maxY - minY) + padding * 2;
+
+  var offscreen = document.createElement('canvas');
+  offscreen.width = w * scale;
+  offscreen.height = h * scale;
+  var ctx = offscreen.getContext('2d');
+
+  // Background
+  var isDark = document.body.classList.contains('dark-mode');
+  ctx.fillStyle = isDark ? '#1e1e2e' : '#fffaf1';
+  ctx.fillRect(0, 0, offscreen.width, offscreen.height);
+
+  // Translate so tree starts at padding
+  ctx.scale(scale, scale);
+  ctx.translate(padding - minX, padding - minY);
+
+  DrawNode(ctx, rootNodeIndex, true);
+
+  // Download
+  var link = document.createElement('a');
+  link.download = 'schema-tree.png';
+  link.href = offscreen.toDataURL('image/png');
+  link.click();
 }

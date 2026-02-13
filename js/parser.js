@@ -17,13 +17,6 @@ function GetFirstChildNode(parentNode, nodeName) {
   return result;
 }
 
-function ShowChildNodes(parentNode) {
-  var childNodes = parentNode.childNodes;
-  var txt = "ChildNodes: <br>";
-  for (var i = 0; i < childNodes.length; i++)
-    txt += "Nodename: " + childNodes[i].nodeName + " (nodetype: " + childNodes[i].nodeType + ") <br>";
-  document.getElementById('trace').innerHTML = txt;
-}
 
 function StrLen(text) {
   var result = 0;

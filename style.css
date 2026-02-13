@@ -377,10 +377,6 @@ td.nd-xpath:hover {
 
 /* ===== Input area ===== */
 
-p.XSD {
-  padding: 0px 12px 4px 12px;
-}
-
 a, p {
   text-align: left;
 }
@@ -398,7 +394,7 @@ a, p {
 
 .landing-inner {
   width: 100%;
-  max-width: 640px;
+  max-width: 960px;
 }
 
 .landing-hero {
@@ -461,6 +457,18 @@ a, p {
   margin-bottom: 16px;
 }
 
+/* ===== Side-by-side grid ===== */
+
+.landing-grid {
+  display: grid;
+  grid-template-columns: 5fr 3fr;
+  gap: 16px;
+}
+
+.landing-grid .landing-card {
+  margin-bottom: 0;
+}
+
 .landing-card-section {
   margin-bottom: 0;
 }
@@ -480,20 +488,22 @@ a, p {
   margin: 16px 0;
 }
 
-.landing-card-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-}
-
 .landing-text-actions {
   display: flex;
   gap: 8px;
   margin-top: 12px;
 }
 
+#schema-text {
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  tab-size: 2;
+  resize: vertical;
+}
+
 .landing-error {
-  max-width: 640px;
+  max-width: 960px;
   margin: 0 auto 16px;
 }
 
@@ -607,7 +617,7 @@ a, p {
   #SearchText {
     width: 120px !important;
   }
-  .landing-card-row {
+  .landing-grid {
     grid-template-columns: 1fr;
   }
   .landing-options {

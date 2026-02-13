@@ -3,15 +3,6 @@
 var canvas;
 var canvasContainer;
 
-var nodeDetails;
-var NodeDetailsName;
-var NodeDetailsAttr;
-var NodeDetailsType;
-var NodeDetailsPattern;
-var NodeDetailsAnno;
-var NodeDetailsEnum;
-var NodeDetailsXPath;
-
 function initApp() {
   canvas = document.getElementById("tree");
   canvasContainer = document.getElementById("canvas-container");
@@ -19,15 +10,6 @@ function initApp() {
   resizeCanvasToContainer();
 
   document.getElementById('SearchReset').setAttribute("hidden", "");
-
-  nodeDetails = document.getElementById('node-details');
-  NodeDetailsName = document.getElementById("nd-name");
-  NodeDetailsAttr = document.getElementById("nd-attr");
-  NodeDetailsType = document.getElementById("nd-type");
-  NodeDetailsPattern = document.getElementById("nd-pattern");
-  NodeDetailsAnno = document.getElementById("nd-anno");
-  NodeDetailsEnum = document.getElementById("nd-enum");
-  NodeDetailsXPath = document.getElementById("nd-xpath");
 
   // Setup camera (zoom/pan)
   setupCameraEvents();
@@ -342,6 +324,7 @@ function updateSidebar(nodeIndex) {
 
     document.getElementById('sb-name').textContent = structName;
     document.getElementById('sb-xpath').textContent = '';
+    document.getElementById('sb-style-row').style.display = 'none';
 
     // Occurrences on the structural node itself
     var occEl = document.getElementById('sb-occ');
@@ -381,6 +364,11 @@ function updateSidebar(nodeIndex) {
 
   document.getElementById('sb-name').textContent = node.name || '';
   document.getElementById('sb-xpath').textContent = XPath(nodeIndex);
+
+  // Style hint
+  var styleHint = getNodeStyleHint(node);
+  document.getElementById('sb-style').textContent = styleHint;
+  document.getElementById('sb-style-row').style.display = styleHint ? '' : 'none';
 
   // Type
   document.getElementById('sb-type').textContent = node.typeDescription || '';
@@ -664,8 +652,6 @@ function LoadSchema(data) {
 
   SetNodesExpanded(rootNodeIndex, true, 2);
   CalcNodePositions();
-
-  document.getElementById('LoadSchemaParagraph').style.display = 'none';
 
   // Start with zoom 1.0 centered on root node
   resetView();
