@@ -1,0 +1,4313 @@
+<!DOCTYPE html>
+<html lang="no">
+
+<!-- Based on online-xsd-viewer by Peter Raffelsberger (MIT License)
+     https://github.com/peterraf/online-xsd-viewer
+     Modified by M. Asskildt -->
+
+<head>
+  <!-- Built: 2026-02-13T22:44:07.901Z -->
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="author" content="Peter Raffelsberger">
+  <title>XML Schema Viewer</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-4bw+/aepP/YC94hEpVNVgiZdgIC5+VKNBQNGCHeKRQN+PtmoHDEXuppvnDJzQIu9" crossorigin="anonymous">
+  <style>
+/* ===== Schema Viewer Styles ===== */
+
+:root {
+  --bg: #ffffff;
+  --bg-alt: #f8f9fa;
+  --canvas-bg: #fffaf1;
+  --text: #212529;
+  --text-muted: #6c757d;
+  --border: #dee2e6;
+  --sidebar-bg: #ffffff;
+  --sidebar-width: 320px;
+  --toolbar-bg: #f8f9fa;
+  --breadcrumb-bg: #f0f0f0;
+}
+
+.dark-mode {
+  --bg: #1e1e2e;
+  --bg-alt: #2a2a3c;
+  --canvas-bg: #1e1e2e;
+  --text: #cdd6f4;
+  --text-muted: #7f849c;
+  --border: #45475a;
+  --sidebar-bg: #24243a;
+  --toolbar-bg: #24243a;
+  --breadcrumb-bg: #2a2a3c;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  overflow: hidden;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.dark-mode .btn-outline-secondary {
+  color: var(--text-muted);
+  border-color: var(--border);
+}
+.dark-mode .btn-outline-secondary:hover {
+  color: var(--text);
+  background: var(--bg-alt);
+}
+.dark-mode .form-control, .dark-mode .form-select {
+  background: var(--bg-alt);
+  color: var(--text);
+  border-color: var(--border);
+}
+.dark-mode .alert-warning {
+  background: #45475a;
+  color: #f9e2af;
+  border-color: #585b70;
+}
+.dark-mode .modal-content {
+  background: var(--bg);
+  color: var(--text);
+}
+
+/* ===== Toolbar ===== */
+
+.schema-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 6px 12px;
+  background: var(--toolbar-bg);
+  border-bottom: 1px solid var(--border);
+}
+
+.toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.toolbar-sep {
+  width: 1px;
+  height: 20px;
+  background: var(--border);
+  margin: 0 4px;
+}
+
+.zoom-display {
+  font-size: 12px;
+  font-weight: 600;
+  min-width: 42px;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+#pan-btn.active {
+  background: #0d6efd;
+  color: white;
+  border-color: #0d6efd;
+}
+
+/* ===== Breadcrumb ===== */
+
+.breadcrumb-content {
+  padding: 4px 12px;
+  background: var(--breadcrumb-bg);
+  font-size: 12px;
+  min-height: 24px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+  overflow-x: auto;
+}
+
+.breadcrumb-item {
+  cursor: pointer;
+  color: var(--text-muted);
+  padding: 1px 3px;
+  border-radius: 3px;
+}
+.breadcrumb-item:hover {
+  color: #0d6efd;
+  text-decoration: underline;
+}
+.breadcrumb-item.active {
+  color: var(--text);
+  font-weight: 600;
+}
+.breadcrumb-sep {
+  color: var(--text-muted);
+  margin: 0 2px;
+}
+
+/* ===== Canvas Container ===== */
+
+#canvas-container {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+}
+
+#canvas-container canvas {
+  flex: 1;
+  display: block;
+  cursor: default;
+}
+
+/* ===== Detail Sidebar ===== */
+
+.detail-sidebar {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: var(--sidebar-width);
+  height: 100%;
+  background: var(--sidebar-bg);
+  border-left: 1px solid var(--border);
+  transform: translateX(100%);
+  transition: transform 0.2s ease;
+  overflow-y: auto;
+  z-index: 10;
+  box-shadow: -2px 0 8px rgba(0,0,0,0.1);
+}
+
+.detail-sidebar.open {
+  transform: translateX(0);
+}
+
+.sidebar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--toolbar-bg);
+}
+
+.sidebar-title {
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.sidebar-body {
+  padding: 8px 0;
+}
+
+.sb-row {
+  padding: 6px 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.sb-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 2px;
+  letter-spacing: 0.5px;
+}
+
+.sb-value {
+  font-size: 13px;
+  word-break: break-word;
+}
+
+.sb-name {
+  font-size: 16px;
+  font-weight: 700;
+  color: #0d6efd;
+}
+
+.sb-xpath {
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 11px;
+  color: var(--text-muted);
+  word-break: break-all;
+}
+
+.sb-mono {
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 12px;
+}
+
+.sb-example {
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 11px;
+  background: #f8f9fa;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  padding: 8px;
+  margin: 0;
+  white-space: pre;
+  overflow-x: auto;
+  color: #334155;
+  line-height: 1.5;
+}
+
+.dark-mode .sb-example {
+  background: #1e1e2e;
+  border-color: #45475a;
+  color: #cdd6f4;
+}
+
+.sb-anno {
+  color: #006000;
+  white-space: pre-wrap;
+}
+
+.dark-mode .sb-anno {
+  color: #a6e3a1;
+}
+
+.sb-attr-name {
+  font-weight: 600;
+  color: #000080;
+}
+
+.dark-mode .sb-attr-name {
+  color: #89b4fa;
+}
+
+.dark-mode .sb-name {
+  color: #89b4fa;
+}
+
+/* ===== Search Results ===== */
+
+.search-result table {
+  width: 100%;
+}
+
+.search-result td.xpath {
+  padding: 2px 8px;
+  font-size: 12px;
+}
+
+/* ===== Original node-details table (kept for canvas popup fallback) ===== */
+
+div.node-details {
+  display: none;
+  position: absolute;
+  background-color: var(--bg);
+  box-shadow: 1px 1px 5px 5px rgba(0,0,0,0.4);
+  z-index: 20;
+}
+
+table.node-details {
+  background-color: var(--bg);
+  border: 2px solid #606060;
+  border-collapse: collapse;
+}
+
+td.nd-column {
+  background-color: #808080;
+  border: 1px solid #B0B0B0;
+  color: #E0E0E0;
+  font-size: 10px;
+  font-weight: bold;
+  padding: 1px 4px 1px 3px;
+  text-align: center;
+  vertical-align: middle;
+}
+
+td.nd-name {
+  background-color: #FFFF80;
+  border: 1px solid #B0B0B0;
+  color: #000000;
+  font-size: 11pt;
+  font-weight: bold;
+  padding: 1px 10px 1px 6px;
+  text-align: left;
+  vertical-align: top;
+}
+
+td.nd-attr {
+  background-color: #FFFF80;
+  border: 1px solid #B0B0B0;
+  color: #303030;
+  font-size: 12px;
+  padding: 3px 10px 2px 6px;
+  text-align: left;
+  vertical-align: top;
+}
+
+td.nd-type, td.nd-pattern {
+  background-color: #FFFFFF;
+  border: 1px solid #B0B0B0;
+  color: #282828;
+  font-size: 11px;
+  font-weight: bold;
+  padding: 3px 10px 2px 6px;
+  text-align: left;
+  vertical-align: top;
+}
+
+td.nd-anno {
+  background-color: #FFFFFF;
+  border: 1px solid #B0B0B0;
+  color: #006000;
+  font-size: 12px;
+  font-weight: bold;
+  line-height: 14px;
+  padding: 4px 10px 3px 6px;
+  text-align: left;
+  vertical-align: top;
+}
+
+td.nd-enum {
+  background-color: #FFFFFF;
+  border: 1px solid #B0B0B0;
+  color: #383838;
+  font-size: 11px;
+  font-weight: bold;
+  line-height: 13px;
+  padding: 4px 10px 3px 6px;
+  text-align: left;
+  vertical-align: top;
+}
+
+td.nd-xpath {
+  background-color: #E0E0E0;
+  border: 1px solid #B0B0B0;
+  color: #282828;
+  font-size: 11px;
+  font-weight: bold;
+  max-width: 300px;
+  padding: 3px 10px 2px 6px;
+  text-align: left;
+  overflow: hidden;
+  vertical-align: top;
+}
+
+td.nd-xpath:hover {
+  overflow: visible;
+}
+
+/* ===== Input area ===== */
+
+p.XSD {
+  padding: 0px 12px 4px 12px;
+}
+
+a, p {
+  text-align: left;
+}
+
+/* ===== Landing Page ===== */
+
+.landing {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+  overflow-y: auto;
+}
+
+.landing-inner {
+  width: 100%;
+  max-width: 640px;
+}
+
+.landing-hero {
+  text-align: center;
+  margin-bottom: 28px;
+}
+
+.landing-icon {
+  font-size: 48px;
+  color: #0d6efd;
+  margin-bottom: 8px;
+  line-height: 1;
+}
+
+.dark-mode .landing-icon {
+  color: #89b4fa;
+}
+
+.landing-title {
+  font-size: 28px;
+  font-weight: 700;
+  margin: 0 0 6px;
+  letter-spacing: -0.5px;
+}
+
+.landing-subtitle {
+  font-size: 14px;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.landing-options {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.landing-opt-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.landing-opt-label {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+}
+
+.landing-card {
+  background: var(--bg-alt);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px;
+  margin-bottom: 16px;
+}
+
+.landing-card-section {
+  margin-bottom: 0;
+}
+
+.landing-field-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.landing-divider {
+  border-color: var(--border);
+  margin: 16px 0;
+}
+
+.landing-card-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.landing-text-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.landing-error {
+  max-width: 640px;
+  margin: 0 auto 16px;
+}
+
+.landing-footer {
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 24px;
+}
+
+.landing-footer a {
+  color: var(--text-muted);
+  text-decoration: underline;
+}
+
+/* ===== Saved URL List ===== */
+
+.saved-url-list {
+  max-height: 240px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.saved-item {
+  display: flex;
+  align-items: center;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  transition: border-color 0.15s;
+}
+
+.saved-item:hover {
+  border-color: #0d6efd;
+}
+
+.dark-mode .saved-item:hover {
+  border-color: #89b4fa;
+}
+
+.saved-item-main {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  min-width: 0;
+}
+
+.saved-item-name {
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.saved-item-badge {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  background: var(--bg-alt);
+  padding: 1px 6px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.saved-item-del {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  padding: 8px 10px;
+  cursor: pointer;
+  font-size: 12px;
+  opacity: 0.4;
+  transition: opacity 0.15s, color 0.15s;
+}
+
+.saved-item:hover .saved-item-del {
+  opacity: 1;
+}
+
+.saved-item-del:hover {
+  color: #dc3545;
+}
+
+.saved-empty {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+  padding: 12px;
+}
+
+/* ===== Responsive ===== */
+
+@media (max-width: 768px) {
+  .schema-toolbar {
+    padding: 4px 8px;
+    gap: 4px;
+  }
+  .toolbar-group {
+    gap: 3px;
+  }
+  .detail-sidebar {
+    width: 260px;
+  }
+  #SearchText {
+    width: 120px !important;
+  }
+  .landing-card-row {
+    grid-template-columns: 1fr;
+  }
+  .landing-options {
+    gap: 12px;
+  }
+  .landing-title {
+    font-size: 22px;
+  }
+}
+
+/* ===== Help Overlay ===== */
+
+.help-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.35);
+}
+
+.help-panel {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  width: 420px;
+  max-width: 92vw;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+}
+
+.help-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+}
+
+.help-title {
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.help-body {
+  padding: 12px 18px 18px;
+}
+
+.help-section {
+  margin-bottom: 16px;
+}
+
+.help-section:last-child {
+  margin-bottom: 0;
+}
+
+.help-section-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border);
+}
+
+.help-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  padding: 4px 0;
+}
+
+.help-swatch {
+  width: 32px;
+  height: 18px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.help-swatch-required {
+  background: #fff;
+  border: 2px solid #3b82f6;
+  border-left: 4px solid #3b82f6;
+}
+
+.dark-mode .help-swatch-required {
+  background: #313244;
+  border-color: #89b4fa;
+}
+
+.help-swatch-optional {
+  background: #f8fafc;
+  border: 1.5px dashed #cbd5e1;
+}
+
+.dark-mode .help-swatch-optional {
+  background: #2a2a3c;
+  border-color: #585b70;
+}
+
+.help-swatch-multi {
+  background: #fff;
+  border: 1.5px solid #3b82f6;
+  box-shadow: 3px 3px 0 -1px #fff, 3px 3px 0 0 #3b82f6;
+}
+
+.dark-mode .help-swatch-multi {
+  background: #313244;
+  border-color: #89b4fa;
+  box-shadow: 3px 3px 0 -1px #313244, 3px 3px 0 0 #89b4fa;
+}
+
+.help-swatch-selected {
+  background: #eff6ff;
+  border: 2px solid #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59,130,246,0.25);
+}
+
+.dark-mode .help-swatch-selected {
+  background: #1e3a5f;
+  border-color: #89b4fa;
+  box-shadow: 0 0 0 2px rgba(137,180,250,0.25);
+}
+
+.help-icon {
+  width: 32px;
+  text-align: center;
+  font-size: 16px;
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+
+.help-icon-seq {
+  letter-spacing: 2px;
+  font-size: 14px;
+}
+
+.help-icon-choice {
+  font-size: 18px;
+}
+
+.help-icon-dots {
+  letter-spacing: 3px;
+}
+
+.help-key {
+  display: inline-block;
+  min-width: 90px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--bg-alt);
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  text-align: center;
+  flex-shrink: 0;
+}
+
+  </style>
+</head>
+
+<body>
+
+  <p class="XSD" id="LoadSchemaParagraph"></p>
+
+  <!-- Landing page -->
+  <div id="landing" class="landing">
+    <div class="landing-inner">
+
+      <!-- Hero -->
+      <div class="landing-hero">
+        <div class="landing-icon"><i class="bi bi-diagram-3"></i></div>
+        <h1 class="landing-title">Schema Viewer</h1>
+        <p class="landing-subtitle">Visualize XML Schema Definitions as interactive tree diagrams</p>
+      </div>
+
+      <!-- Error banner -->
+      <div class="alert alert-warning rounded-2 landing-error" role="alert" id="errorToUser" hidden>
+        <i class="bi bi-exclamation-triangle-fill"></i> Error
+      </div>
+
+      <!-- Source & Type toggles -->
+      <div id="header" class="landing-options">
+        <div class="landing-opt-group">
+          <span class="landing-opt-label">Source</span>
+          <div class="btn-group btn-group-sm" role="group">
+            <input type="radio" class="btn-check" name="source" id="radio_url" autocomplete="off" onclick="changeMode('url')" checked>
+            <label class="btn btn-outline-secondary" for="radio_url"><i class="bi bi-link-45deg"></i> URL</label>
+            <input type="radio" class="btn-check" name="source" id="radio_text" autocomplete="off" onclick="changeMode('text')">
+            <label class="btn btn-outline-secondary" for="radio_text"><i class="bi bi-code-slash"></i> Text</label>
+          </div>
+        </div>
+        <div class="landing-opt-group">
+          <span class="landing-opt-label">Namespace prefix</span>
+          <div class="btn-group btn-group-sm" role="group">
+            <input type="radio" class="btn-check" name="xsdType" id="radio_xs" autocomplete="off" checked onclick="updateXsdType('xs')">
+            <label class="btn btn-outline-secondary" for="radio_xs">xs:</label>
+            <input type="radio" class="btn-check" name="xsdType" id="radio_xsd" autocomplete="off" onclick="updateXsdType('xsd')">
+            <label class="btn btn-outline-secondary" for="radio_xsd">xsd:</label>
+            <input type="radio" class="btn-check" name="xsdType" id="radio_custom" autocomplete="off" onclick="updateXsdType('custom')">
+            <label class="btn btn-outline-secondary" for="radio_custom">custom</label>
+          </div>
+          <input class="form-control form-control-sm" style="max-width:120px" disabled id="custom_xsdType" type="text" placeholder="prefix:" aria-label="Custom XSD type prefix">
+        </div>
+      </div>
+
+      <!-- URL mode card -->
+      <div id="inputPrep">
+        <div id="option_url" class="landing-card">
+          <div class="landing-card-section">
+            <label class="landing-field-label" for="inputURL">Load from URL</label>
+            <div class="input-group">
+              <input type="text" class="form-control" id="inputURL" aria-label="XSD URL" placeholder="https://example.com/schema.xsd">
+              <button class="btn btn-primary" type="button" onclick="fetchURL(document.getElementById('inputURL').value)"><i class="bi bi-eye"></i> View</button>
+            </div>
+          </div>
+
+          <hr class="landing-divider">
+
+          <div class="landing-card-row">
+            <div class="landing-card-col">
+              <label class="landing-field-label" for="saveURL_name">Save current URL</label>
+              <div class="input-group input-group-sm">
+                <input type="text" id="saveURL_name" class="form-control" placeholder="Give it a name...">
+                <button class="btn btn-secondary" type="button" onclick="fetchURL(document.getElementById('inputURL').value, true)"><i class="bi bi-bookmark-plus"></i> Save</button>
+              </div>
+            </div>
+          </div>
+
+          <hr class="landing-divider">
+
+          <label class="landing-field-label">Saved schemas</label>
+          <div id="savedUrlList" class="saved-url-list"></div>
+        </div>
+
+        <!-- Text mode card -->
+        <div id="option_textarea" class="landing-card" hidden>
+          <div class="landing-card-section">
+            <label class="landing-field-label">Paste XSD content</label>
+            <textarea id="schema-text" name="xml-schema" class="form-control" rows="8" placeholder="Paste your .xsd file content here..."></textarea>
+            <div class="landing-text-actions">
+              <button class="btn btn-primary btn-sm" onclick="LoadSchema();"><i class="bi bi-play-fill"></i> Load Schema</button>
+              <button class="btn btn-outline-secondary btn-sm" onclick="SampleSchema();">Sample</button>
+              <button class="btn btn-outline-danger btn-sm" onclick="document.getElementById('schema-text').value='';">Clear</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <p class="landing-footer" id="BottomParagraph">
+        2026 &copy; M. Asskildt &middot;
+        Based on <a href="http://xml-tools.net/schemaviewer.html" target="_blank" rel="noopener noreferrer">online-xsd-viewer</a> by Peter Raffelsberger
+        (<a href="https://github.com/peterraf/online-xsd-viewer" target="_blank">MIT</a>)
+      </p>
+
+      <!-- License accordion -->
+      <details style="max-width: 640px; margin: 8px auto 0; text-align: left;">
+        <summary style="font-size: 12px; color: var(--text-muted); cursor: pointer; text-align: center; list-style: none;">
+          <i class="bi bi-file-text"></i> License information
+        </summary>
+        <div style="margin-top: 10px; padding: 14px 16px; font-size: 11px; line-height: 1.6; color: var(--text-muted); background: var(--bg-alt); border: 1px solid var(--border); border-radius: 8px; white-space: pre-wrap;">MIT License
+
+Copyright (c) 2018 peterraf
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.</div>
+      </details>
+    </div>
+  </div>
+
+  <code id="Status" style="display: none;"></code>
+
+  <!-- Schema toolbar -->
+  <div id="SchemaOptions" class="schema-toolbar" hidden>
+    <div class="toolbar-group">
+      <input class="form-check-input" type="checkbox" id="cbAnnotations" onclick="AnnotationChanged();" value="1" checked>
+      <label class="form-check-label" for="cbAnnotations">Annotations</label>
+      <input class="form-check-input ms-2" type="checkbox" id="cbTypeInfo" onclick="TypeInfoChanged();" value="1" checked>
+      <label class="form-check-label" for="cbTypeInfo">Type Info</label>
+    </div>
+    <div class="toolbar-group">
+      <input class="form-control form-control-sm" id="SearchText" placeholder="Search..." style="width:180px">
+      <button class="btn btn-primary btn-sm" id="SearchButton" onclick="SearchButtonPressed();">Search</button>
+      <button class="btn btn-secondary btn-sm" id="SearchReset" onclick="SearchResetPressed();">Reset</button>
+    </div>
+    <div class="toolbar-group">
+      <button class="btn btn-outline-secondary btn-sm" id="expand-all-btn" title="Expand all"><i class="bi bi-arrows-expand"></i></button>
+      <button class="btn btn-outline-secondary btn-sm" id="collapse-all-btn" title="Collapse all"><i class="bi bi-arrows-collapse"></i></button>
+      <button class="btn btn-outline-secondary btn-sm" id="reset-view-btn" title="Reset view"><i class="bi bi-arrow-counterclockwise"></i></button>
+      <span class="toolbar-sep"></span>
+      <button class="btn btn-outline-secondary btn-sm" id="zoom-out-btn" title="Zoom out"><i class="bi bi-zoom-out"></i></button>
+      <span class="zoom-display" id="zoom-level">100%</span>
+      <button class="btn btn-outline-secondary btn-sm" id="zoom-in-btn" title="Zoom in"><i class="bi bi-zoom-in"></i></button>
+      <button class="btn btn-outline-secondary btn-sm" id="fit-btn" title="Fit to content"><i class="bi bi-fullscreen"></i></button>
+      <button class="btn btn-outline-secondary btn-sm" id="pan-btn" title="Pan mode (H)"><i class="bi bi-hand-index"></i></button>
+      <span class="toolbar-sep"></span>
+      <button class="btn btn-outline-secondary btn-sm" id="dark-mode-btn" title="Toggle dark mode"><i class="bi bi-moon-fill"></i></button>
+      <button class="btn btn-outline-secondary btn-sm" id="help-btn" title="Help &amp; legend"><i class="bi bi-question-circle"></i></button>
+    </div>
+  </div>
+
+  <!-- Help / Legend overlay -->
+  <div id="help-overlay" class="help-overlay" hidden>
+    <div class="help-panel">
+      <div class="help-header">
+        <span class="help-title">Legend &amp; Controls</span>
+        <button class="btn btn-sm btn-outline-secondary" onclick="document.getElementById('help-overlay').hidden=true"><i class="bi bi-x-lg"></i></button>
+      </div>
+      <div class="help-body">
+        <div class="help-section">
+          <div class="help-section-title">Nodes</div>
+          <div class="help-row">
+            <span class="help-swatch help-swatch-required"></span>
+            <span>Solid blue border = required field (minOccurs &ge; 1)</span>
+          </div>
+          <div class="help-row">
+            <span class="help-swatch help-swatch-optional"></span>
+            <span>Dashed grey border = optional field (minOccurs = 0)</span>
+          </div>
+          <div class="help-row">
+            <span class="help-swatch help-swatch-multi"></span>
+            <span>Stacked cards = multiple occurrences (maxOccurs &gt; 1)</span>
+          </div>
+          <div class="help-row">
+            <span class="help-swatch help-swatch-selected"></span>
+            <span>Blue highlight = currently selected node</span>
+          </div>
+        </div>
+        <div class="help-section">
+          <div class="help-section-title">Symbols</div>
+          <div class="help-row">
+            <span class="help-icon">&#x2295;</span>
+            <span>Click to expand child nodes</span>
+          </div>
+          <div class="help-row">
+            <span class="help-icon">&#x2296;</span>
+            <span>Click to collapse child nodes</span>
+          </div>
+          <div class="help-row">
+            <span class="help-icon help-icon-seq">&#x2022;&#x2022;&#x2022;</span>
+            <span>Sequence — children appear in order</span>
+          </div>
+          <div class="help-row">
+            <span class="help-icon help-icon-choice">&#x2442;</span>
+            <span>Choice — only one child is used</span>
+          </div>
+          <div class="help-row">
+            <span class="help-icon help-icon-seq">&#x2195;</span>
+            <span>All — children appear in any order, each at most once</span>
+          </div>
+          <div class="help-row">
+            <span class="help-icon help-icon-dots">&#x2026;</span>
+            <span>Recursive or anyType reference</span>
+          </div>
+        </div>
+        <div class="help-section">
+          <div class="help-section-title">Interaction</div>
+          <div class="help-row"><span class="help-key">Click node</span><span>Select &amp; show details in sidebar</span></div>
+          <div class="help-row"><span class="help-key">Click &#x2295;/&#x2296;</span><span>Expand or collapse children</span></div>
+          <div class="help-row"><span class="help-key">Drag</span><span>Pan the canvas</span></div>
+          <div class="help-row"><span class="help-key">Scroll wheel</span><span>Zoom in/out</span></div>
+          <div class="help-row"><span class="help-key">H</span><span>Toggle pan mode</span></div>
+          <div class="help-row"><span class="help-key">+ / −</span><span>Zoom in / out</span></div>
+          <div class="help-row"><span class="help-key">0</span><span>Fit to content</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Breadcrumb -->
+  <div id="breadcrumb-bar" class="breadcrumb-bar"></div>
+  <div id="breadcrumb" class="breadcrumb-content"></div>
+
+  <!-- Search results -->
+  <div hidden class="search-result" id="SearchResultDiv" style="max-height: 152px; overflow: scroll;">
+    <table class="search-result d-grid gap-2"></table>
+  </div>
+
+  <!-- Main canvas area with sidebar -->
+  <div id="canvas-container" style="display: none;">
+    <canvas id="tree">Your browser does not support canvas</canvas>
+
+    <!-- Detail sidebar -->
+    <div id="detail-sidebar" class="detail-sidebar">
+      <div class="sidebar-header">
+        <span class="sidebar-title">Node Details</span>
+        <button class="btn btn-sm btn-outline-secondary" onclick="document.getElementById('detail-sidebar').classList.remove('open')"><i class="bi bi-x-lg"></i></button>
+      </div>
+      <div class="sidebar-body">
+        <div class="sb-row">
+          <div class="sb-label">Name</div>
+          <div class="sb-value sb-name" id="sb-name"></div>
+        </div>
+        <div class="sb-row">
+          <div class="sb-label">XPath</div>
+          <div class="sb-value sb-xpath" id="sb-xpath"></div>
+        </div>
+        <div class="sb-row" id="sb-occ-row">
+          <div class="sb-label">Occurs</div>
+          <div class="sb-value" id="sb-occ"></div>
+        </div>
+        <div class="sb-row" id="sb-type-row">
+          <div class="sb-label">Type</div>
+          <div class="sb-value" id="sb-type"></div>
+        </div>
+        <div class="sb-row" id="sb-pattern-row">
+          <div class="sb-label">Pattern</div>
+          <div class="sb-value sb-mono" id="sb-pattern"></div>
+        </div>
+        <div class="sb-row" id="sb-anno-row">
+          <div class="sb-label">Description</div>
+          <div class="sb-value sb-anno" id="sb-anno"></div>
+        </div>
+        <div class="sb-row" id="sb-attr-row">
+          <div class="sb-label">Attributes</div>
+          <div class="sb-value" id="sb-attr"></div>
+        </div>
+        <div class="sb-row" id="sb-enum-row">
+          <div class="sb-label">Enum</div>
+          <div class="sb-value sb-mono" id="sb-enum"></div>
+        </div>
+        <div class="sb-row" id="sb-digits-row">
+          <div class="sb-label">Digits</div>
+          <div class="sb-value sb-mono" id="sb-digits"></div>
+        </div>
+        <div class="sb-row" id="sb-range-row">
+          <div class="sb-label">Range</div>
+          <div class="sb-value sb-mono" id="sb-range"></div>
+        </div>
+        <div class="sb-row" id="sb-keys-row">
+          <div class="sb-label">Keys</div>
+          <div class="sb-value sb-keys" id="sb-keys"></div>
+        </div>
+        <div class="sb-row" id="sb-keyrefs-row">
+          <div class="sb-label">References</div>
+          <div class="sb-value sb-keys" id="sb-keyrefs"></div>
+        </div>
+        <div class="sb-row" id="sb-example-row">
+          <div class="sb-label">XML Example</div>
+          <pre class="sb-value sb-example" id="sb-example"></pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Old node-details popup (hidden, kept for compatibility) -->
+  <div id="node-details" class="node-details" style="display:none">
+    <table class="node-details">
+      <tr><td class="nd-column">Name</td><td class="nd-name" id="nd-name"></td></tr>
+      <tr><td class="nd-column">Attr</td><td class="nd-attr" id="nd-attr"></td></tr>
+      <tr><td class="nd-column">Type</td><td class="nd-type" id="nd-type"></td></tr>
+      <tr><td class="nd-column">Pattern</td><td class="nd-pattern" id="nd-pattern"></td></tr>
+      <tr><td class="nd-column">Descr</td><td class="nd-anno" id="nd-anno"></td></tr>
+      <tr><td class="nd-column">Enum</td><td class="nd-enum" id="nd-enum"></td></tr>
+      <tr><td class="nd-column">XPath</td><td class="nd-xpath" id="nd-xpath"></td></tr>
+    </table>
+  </div>
+
+  <!-- Delete Confirmation Modal -->
+  <div class="modal fade" id="exampleModal" tabindex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h1 class="modal-title fs-5" id="modalLabel">Modal title</h1>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body" id="modalBody"></div>
+        <div class="modal-footer">
+          <button type="button" id="modalBtnCancel" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+          <button type="button" id="modalBtnExecute" class="btn btn-primary" data-bs-dismiss="modal">Confirm</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <p id="trace" style="display: none; margin: 0px;"></p>
+
+  <!-- Bootstrap JS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
+
+  <!-- App modules -->
+    <script>
+
+// ===== js/config.js =====
+// ===== CONFIG & CONSTANTS =====
+
+var NodeTypeComplex = 1;
+var NodeTypeSimple = 2;
+var NodeTypeSequence = 3;
+var NodeTypeChoice = 4;
+var NodeTypeString = 5;
+var NodeTypeNumber = 6;
+var NodeTypeInteger = 7;
+var NodeTypeDate = 8;
+var NodeTypeDateTime = 9;
+var NodeTypeBoolean = 10;
+var NodeTypeAll = 11;
+
+var NodeTypeNames = ["", "Complex", "Simple", "Sequence", "Choice", "String", "Number", "Integer", "Date", "DateTime", "Boolean", "All"];
+
+var nMaxSearchResults = 100;
+
+// Canvas drawing constants
+var sLineColor = "#9ca3af";
+var nLineWidth = 1;
+var nMultipleNodeOffset = 4;
+var nShadowOffset = 3;
+var sShadowColor = "rgba(0,0,0,0.10)";
+
+// Node styling — modernized
+var sNodeNameFont = "600 11pt 'Inter', 'Segoe UI', system-ui, sans-serif";
+var sNodeNameColor = "#1e293b";
+var sNodeBackgroundColor = "#ffffff";
+var sSelectedNodeBackgroundColor = "#eff6ff";
+var sOptionalNodeBackgroundColor = "#f8fafc";
+var sRequiredNodeBorderColor = "#3b82f6";
+var sOptionalNodeBorderColor = "#cbd5e1";
+var sMandatoryAttributeNameFont = "bold 11px 'Inter', system-ui, sans-serif";
+var sOptionalAttributeNameFont = "11px 'Inter', system-ui, sans-serif";
+var sAttributeNameColor = "#475569";
+var nAttributeVerPadding = 4;
+var nAttributeLineHeight = 15;
+var sTypeDescriptionFont = "500 10px 'Inter', system-ui, sans-serif";
+var sAnnotationFont = "11px 'Inter', system-ui, sans-serif";
+var sAnnotationColor = "#64748b";
+var nAnnotationTextHeight = 11;
+var nAnnotationLineDistance = 3;
+var nMaxAnnotationWidth = 260;
+var nAnnotationDistance = 8;
+
+var nNodeTextHeight = 12;
+var nNodeTextPadding = 10;
+var nNodeHeight = nNodeTextHeight + nNodeTextPadding * 2;
+var nHalfNodeHeight = nNodeHeight / 2;
+var nNodeBorderRadius = 6;
+var nSequenceWidth = nNodeHeight * 1.5;
+var nSequenceHeight = Math.round(nNodeHeight * 0.833);
+var nSequenceCornerSize = Math.round(nSequenceHeight * 0.26);
+
+var sPointsColor = "#94a3b8";
+var nPointsDistance = 5;
+var nPointsSize = 3;
+var nPointsHalfSize = 1.5;
+
+var sSequenceBoxColor = "#64748b";
+
+// Expander — circle with +/−
+var nExpanderRadius = 8;
+var nExpanderHalfSize = nExpanderRadius;
+var nExpanderSize = nExpanderRadius * 2;
+var nExpanderDistance = 4;
+var sExpanderBgColor = "#ffffff";
+var sExpanderBorderColor = "#94a3b8";
+var sExpanderIconColor = "#64748b";
+
+var nMinHorLineLength = 24;
+var nVerNodeDistance = 14;
+
+// Type badge
+var sTypeBadgeFont = "500 9px 'Inter', system-ui, sans-serif";
+var sTypeBadgeColor = "#64748b";
+var sTypeBadgeBg = "#f1f5f9";
+var nTypeBadgeHeight = 16;
+var nTypeBadgePadding = 6;
+
+var sTextDelimeters = " .,;:-+*/=<>()&%$\u00A3\"!#'[]{}\u00A5`~^\u00A7";
+
+
+// ===== js/state.js =====
+// ===== GLOBAL STATE =====
+
+var Nodes = [];
+var ComplexTypes = [];
+var SimpleTypes = [];
+var SchemaKeys = [];
+var SchemaKeyRefs = [];
+var GlobalElements = [];
+var SearchResults = [];
+
+var rootNodeIndex = null;
+var bResolveComplexTypes = false;
+var bTooManySearchResults = false;
+
+var xsdType = "xs";
+var savedURLs = {};
+
+var nLastClickedNodeIndex;
+var nLastExpandedNodeIndex;
+var nLastCollapsedNodeIndex;
+
+var bShowAnnotations = true;
+var bShowTypeInfo = true;
+
+var lastSearchText = '';
+
+var nCanvasHeight = 5000;
+var nCanvasWidth = 5000;
+var nSchemaBorder = 10;
+var nSchemaHeight = 0;
+var nSchemaWidth = 0;
+
+
+// ===== js/parser.js =====
+// ===== XSD PARSER =====
+
+function IsRealNode(nodeType) {
+  return !(nodeType == NodeTypeChoice || nodeType == NodeTypeSequence || nodeType == NodeTypeAll);
+}
+
+function GetFirstChildNode(parentNode, nodeName) {
+  var result;
+  var childNodes = parentNode.childNodes;
+  var i = 0;
+  while (i < childNodes.length && !result) {
+    if (childNodes[i].nodeName == nodeName)
+      result = childNodes[i];
+    else
+      i++;
+  }
+  return result;
+}
+
+function ShowChildNodes(parentNode) {
+  var childNodes = parentNode.childNodes;
+  var txt = "ChildNodes: <br>";
+  for (var i = 0; i < childNodes.length; i++)
+    txt += "Nodename: " + childNodes[i].nodeName + " (nodetype: " + childNodes[i].nodeType + ") <br>";
+  document.getElementById('trace').innerHTML = txt;
+}
+
+function StrLen(text) {
+  var result = 0;
+  if (typeof text == 'string')
+    result = Number(text.length);
+  return result;
+}
+
+function ToNumber(value, default_value) {
+  var vt = typeof value;
+  if (vt == 'number' || vt == 'string')
+    return Number(value);
+  return default_value;
+}
+
+function ToNumberUnbounded(value, default_value) {
+  if (value == 'unbounded') return -1;
+  var vt = typeof value;
+  if (vt == 'number' || vt == 'string')
+    return Number(value);
+  return default_value;
+}
+
+function ToString(txt) {
+  return (txt !== undefined) ? txt : '';
+}
+
+function ParseComplexTypeNode(node, parentIndex) {
+  var childNodes = node.childNodes;
+  var nodeName;
+  var previousIndex = null;
+  var nodeIndex = null;
+
+  // Collect attributes directly on the complexType
+  var directAttributes = [];
+  for (var i = 0; i < childNodes.length; i++) {
+    if (childNodes[i].nodeType == 1 && childNodes[i].nodeName == xsdType + ':attribute') {
+      var attribute = {};
+      attribute.name = childNodes[i].getAttribute("name");
+      attribute.type = childNodes[i].getAttribute("type");
+      attribute.use = childNodes[i].getAttribute("use");
+      directAttributes.push(attribute);
+    }
+  }
+  if (directAttributes.length > 0) {
+    if (!Nodes[parentIndex].attributes) Nodes[parentIndex].attributes = [];
+    Nodes[parentIndex].attributes = Nodes[parentIndex].attributes.concat(directAttributes);
+    Nodes[parentIndex].showAttributes = true;
+  }
+
+  for (var i = 0; i < childNodes.length; i++) {
+    if (childNodes[i].nodeType == 1) {
+      nodeName = childNodes[i].nodeName;
+      if (nodeName == xsdType + ':choice' || nodeName == xsdType + ':sequence' || nodeName == xsdType + ':all') {
+        previousIndex = nodeIndex;
+        nodeIndex = AddNode(childNodes[i], parentIndex, previousIndex);
+        if (parentIndex != null && previousIndex == null)
+          Nodes[parentIndex].firstChildIndex = nodeIndex;
+        if (previousIndex != null)
+          Nodes[previousIndex].nextIndex = nodeIndex;
+      }
+      if (nodeName == xsdType + ':complexContent') {
+        var extensionNode = GetFirstChildNode(childNodes[i], xsdType + ':extension');
+        if (extensionNode) {
+          Nodes[parentIndex].baseTypeName = extensionNode.getAttribute("base");
+          // Parse child sequences/choices/all inside the extension
+          var extChildren = extensionNode.childNodes;
+          for (var j = 0; j < extChildren.length; j++) {
+            if (extChildren[j].nodeType == 1) {
+              var extChildName = extChildren[j].nodeName;
+              if (extChildName == xsdType + ':sequence' || extChildName == xsdType + ':choice' || extChildName == xsdType + ':all') {
+                previousIndex = nodeIndex;
+                nodeIndex = AddNode(extChildren[j], parentIndex, previousIndex);
+                if (parentIndex != null && previousIndex == null)
+                  Nodes[parentIndex].firstChildIndex = nodeIndex;
+                if (previousIndex != null)
+                  Nodes[previousIndex].nextIndex = nodeIndex;
+              }
+              if (extChildren[j].nodeName == xsdType + ':attribute') {
+                if (!Nodes[parentIndex].attributes) Nodes[parentIndex].attributes = [];
+                var extAttr = {};
+                extAttr.name = extChildren[j].getAttribute("name");
+                extAttr.type = extChildren[j].getAttribute("type");
+                extAttr.use = extChildren[j].getAttribute("use");
+                Nodes[parentIndex].attributes.push(extAttr);
+                Nodes[parentIndex].showAttributes = true;
+              }
+            }
+          }
+        }
+        var restrictionNode = GetFirstChildNode(childNodes[i], xsdType + ':restriction');
+        if (restrictionNode) {
+          Nodes[parentIndex].baseTypeName = restrictionNode.getAttribute("base");
+          Nodes[parentIndex].isRestriction = true;
+          // Parse child sequences/choices/all inside the restriction
+          var restChildren = restrictionNode.childNodes;
+          for (var j = 0; j < restChildren.length; j++) {
+            if (restChildren[j].nodeType == 1) {
+              var restChildName = restChildren[j].nodeName;
+              if (restChildName == xsdType + ':sequence' || restChildName == xsdType + ':choice' || restChildName == xsdType + ':all') {
+                previousIndex = nodeIndex;
+                nodeIndex = AddNode(restChildren[j], parentIndex, previousIndex);
+                if (parentIndex != null && previousIndex == null)
+                  Nodes[parentIndex].firstChildIndex = nodeIndex;
+                if (previousIndex != null)
+                  Nodes[previousIndex].nextIndex = nodeIndex;
+              }
+              if (restChildren[j].nodeName == xsdType + ':attribute') {
+                if (!Nodes[parentIndex].attributes) Nodes[parentIndex].attributes = [];
+                var restAttr = {};
+                restAttr.name = restChildren[j].getAttribute("name");
+                restAttr.type = restChildren[j].getAttribute("type");
+                restAttr.use = restChildren[j].getAttribute("use");
+                Nodes[parentIndex].attributes.push(restAttr);
+                Nodes[parentIndex].showAttributes = true;
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+function ParseSequenceNode(node, parentIndex) {
+  var childNodes = node.childNodes;
+  var previousIndex = null;
+  var nodeIndex = null;
+
+  for (var i = 0; i < childNodes.length; i++) {
+    if (childNodes[i].nodeType == 1) {
+      previousIndex = nodeIndex;
+      nodeIndex = AddNode(childNodes[i], parentIndex, previousIndex);
+      if (parentIndex != null && previousIndex == null)
+        Nodes[parentIndex].firstChildIndex = nodeIndex;
+      if (previousIndex != null)
+        Nodes[previousIndex].nextIndex = nodeIndex;
+    }
+  }
+}
+
+function ParseRestrictionFacets(restrictionNode, destIndex) {
+  var childNodes = restrictionNode.childNodes;
+  if (!Nodes[destIndex].enumeration) Nodes[destIndex].enumeration = [];
+
+  for (var i = 0; i < childNodes.length; i++) {
+    if (childNodes[i].nodeType == 1) {
+      var internalNodeName = childNodes[i].nodeName;
+      var val = childNodes[i].getAttribute("value");
+      if (internalNodeName == xsdType + ':minLength')
+        Nodes[destIndex].minLength = val;
+      if (internalNodeName == xsdType + ':maxLength')
+        Nodes[destIndex].maxLength = val;
+      if (internalNodeName == xsdType + ':length') {
+        Nodes[destIndex].minLength = val;
+        Nodes[destIndex].maxLength = val;
+      }
+      if (internalNodeName == xsdType + ':pattern')
+        Nodes[destIndex].pattern = val;
+      if (internalNodeName == xsdType + ':enumeration')
+        Nodes[destIndex].enumeration.push(val);
+      if (internalNodeName == xsdType + ':totalDigits')
+        Nodes[destIndex].totalDigits = val;
+      if (internalNodeName == xsdType + ':fractionDigits')
+        Nodes[destIndex].fractionDigits = val;
+      if (internalNodeName == xsdType + ':minInclusive')
+        Nodes[destIndex].minInclusive = val;
+      if (internalNodeName == xsdType + ':maxInclusive')
+        Nodes[destIndex].maxInclusive = val;
+      if (internalNodeName == xsdType + ':minExclusive')
+        Nodes[destIndex].minExclusive = val;
+      if (internalNodeName == xsdType + ':maxExclusive')
+        Nodes[destIndex].maxExclusive = val;
+    }
+  }
+}
+
+function ParseSimpleTypeNode(node, destIndex) {
+  var restrictionNode = GetFirstChildNode(node, xsdType + ':restriction');
+
+  if (restrictionNode) {
+    Nodes[destIndex].baseTypeName = restrictionNode.getAttribute("base");
+    Nodes[destIndex].enumeration = [];
+    ParseRestrictionFacets(restrictionNode, destIndex);
+  }
+}
+
+function ParseSimpleContentNode(node, destIndex) {
+  var extensionNode = GetFirstChildNode(node, xsdType + ':extension');
+
+  if (extensionNode) {
+    Nodes[destIndex].baseTypeName = extensionNode.getAttribute("base");
+    Nodes[destIndex].attributes = [];
+    var childNodes = extensionNode.childNodes;
+
+    for (var i = 0; i < childNodes.length; i++) {
+      if (childNodes[i].nodeType == 1) {
+        if (childNodes[i].nodeName == xsdType + ':attribute') {
+          var attribute = {};
+          attribute.name = childNodes[i].getAttribute("name");
+          attribute.type = childNodes[i].getAttribute("type");
+          attribute.use = childNodes[i].getAttribute("use");
+          Nodes[destIndex].attributes.push(attribute);
+        }
+      }
+    }
+  }
+}
+
+function UpdateTypeDescription(nodeIndex) {
+  var typeDescription;
+
+  if (Nodes[nodeIndex].typeName)
+    typeDescription = Nodes[nodeIndex].typeName;
+
+  if (Nodes[nodeIndex].baseTypeName) {
+    if (typeDescription)
+      typeDescription += ":  " + Nodes[nodeIndex].baseTypeName;
+    else
+      typeDescription = Nodes[nodeIndex].baseTypeName;
+
+    var minLength = Nodes[nodeIndex].minLength;
+    var maxLength = Nodes[nodeIndex].maxLength;
+
+    if (minLength)
+      if (maxLength)
+        if (minLength == maxLength)
+          typeDescription += " (" + maxLength + " chars)";
+        else
+          typeDescription += " (" + minLength + "-" + maxLength + " chars)";
+      else
+        typeDescription += " (min " + minLength + " chars)";
+    else
+      if (maxLength)
+        typeDescription += " (max " + maxLength + " chars)";
+
+    // totalDigits / fractionDigits
+    var totalDigits = Nodes[nodeIndex].totalDigits;
+    var fractionDigits = Nodes[nodeIndex].fractionDigits;
+    if (totalDigits) {
+      if (fractionDigits)
+        typeDescription += " (" + totalDigits + " digits, " + fractionDigits + " decimals)";
+      else
+        typeDescription += " (" + totalDigits + " digits)";
+    }
+
+    // minInclusive / maxInclusive / minExclusive / maxExclusive
+    var rangeMin = Nodes[nodeIndex].minInclusive || Nodes[nodeIndex].minExclusive;
+    var rangeMax = Nodes[nodeIndex].maxInclusive || Nodes[nodeIndex].maxExclusive;
+    if (rangeMin || rangeMax) {
+      var minBracket = Nodes[nodeIndex].minInclusive ? "[" : "(";
+      var maxBracket = Nodes[nodeIndex].maxInclusive ? "]" : ")";
+      var minVal = rangeMin || "";
+      var maxVal = rangeMax || "";
+      typeDescription += " " + minBracket + minVal + ".." + maxVal + maxBracket;
+    }
+  }
+
+  if (typeDescription) {
+    var minOccurs = Nodes[nodeIndex].minOccurs;
+    var maxOccurs = Nodes[nodeIndex].maxOccurs;
+    if (maxOccurs != "1")
+      if (minOccurs == maxOccurs)
+        typeDescription += "  [" + maxOccurs + "]";
+      else
+        if (maxOccurs > 0)
+          typeDescription += "  [" + minOccurs + "..." + maxOccurs + "]";
+        else
+          typeDescription += "  [" + minOccurs + "...unbound]";
+  }
+
+  Nodes[nodeIndex].typeDescription = typeDescription;
+}
+
+function AddNode(node, parentIndex, previousIndex) {
+  var mynode = {};
+  var complexTypeNode;
+
+  mynode.parentIndex = parentIndex;
+  mynode.previousIndex = previousIndex;
+
+  var internalNodeName = node.nodeName;
+
+  if (internalNodeName == xsdType + ':choice')
+    mynode.type = NodeTypeChoice;
+
+  if (internalNodeName == xsdType + ':sequence')
+    mynode.type = NodeTypeSequence;
+
+  if (internalNodeName == xsdType + ':all')
+    mynode.type = NodeTypeAll;
+
+  if (internalNodeName == xsdType + ':element') {
+    mynode.name = node.getAttribute("name");
+    mynode.typeName = node.getAttribute("type");
+    mynode.ref = node.getAttribute("ref");
+    mynode.minOccurs = ToNumber(node.getAttribute("minOccurs"), 1);
+    mynode.maxOccurs = ToNumberUnbounded(node.getAttribute("maxOccurs"), 1);
+    if (mynode.typeName && mynode.typeName.length > 0 && mynode.typeName.substr(0, 3) != xsdType + ':')
+      mynode.type = NodeTypeComplex;
+  }
+
+  mynode.firstChildIndex = null;
+  mynode.expanded = false;
+  mynode.showAttributes = true;
+
+  var annotationNode = GetFirstChildNode(node, xsdType + ':annotation');
+  if (annotationNode) {
+    var docNode = GetFirstChildNode(annotationNode, xsdType + ':documentation');
+    if (docNode) {
+      mynode.annotation = docNode.textContent;
+    }
+  }
+
+  var nodeIndex = Nodes.length;
+  Nodes.push(mynode);
+
+  if (!mynode.typeName) {
+    var simpleTypeNode = GetFirstChildNode(node, xsdType + ':simpleType');
+    if (simpleTypeNode)
+      ParseSimpleTypeNode(simpleTypeNode, nodeIndex);
+  }
+
+  if (!mynode.typeName) {
+    complexTypeNode = GetFirstChildNode(node, xsdType + ':complexType');
+    if (complexTypeNode) {
+      var simpleContentNode = GetFirstChildNode(complexTypeNode, xsdType + ':simpleContent');
+      if (simpleContentNode)
+        ParseSimpleContentNode(simpleContentNode, nodeIndex);
+    }
+  }
+
+  UpdateTypeDescription(nodeIndex);
+
+  if (Nodes.length < 100000) {
+    if (mynode.type == NodeTypeChoice || mynode.type == NodeTypeSequence || mynode.type == NodeTypeAll)
+      ParseSequenceNode(node, nodeIndex);
+    else {
+      if (!mynode.typeName && !mynode.ref) {
+        complexTypeNode = GetFirstChildNode(node, xsdType + ':complexType');
+        if (complexTypeNode) {
+          Nodes[nodeIndex].type = NodeTypeComplex;
+          ParseComplexTypeNode(complexTypeNode, nodeIndex);
+        }
+      }
+    }
+
+    if (bResolveComplexTypes && !Nodes[nodeIndex].firstChildIndex) {
+      // Resolve element ref
+      if (mynode.ref && mynode.ref.length > 0)
+        ResolveElementRef(nodeIndex);
+      if (mynode.type == NodeTypeComplex && mynode.typeName && mynode.typeName.length > 0)
+        ResolveComplexType(nodeIndex);
+      if (mynode.baseTypeName && mynode.baseTypeName.length > 0)
+        ResolveSimpleBaseType(nodeIndex);
+    }
+  }
+
+  return nodeIndex;
+}
+
+function XPath(nodeIndex) {
+  var result = "";
+  var nodeType = Nodes[nodeIndex].type;
+  if (nodeType != NodeTypeChoice && nodeType != NodeTypeSequence && nodeType != NodeTypeAll)
+    result = "/" + Nodes[nodeIndex].name;
+  var parentIndex = Nodes[nodeIndex].parentIndex;
+  if (parentIndex)
+    result = XPath(parentIndex) + result;
+  return result;
+}
+
+function TypeNameUsedAbove(nodeIndex, typeName) {
+  var result = false;
+  var parentIndex = Nodes[nodeIndex].parentIndex;
+  while (parentIndex && !result) {
+    if (Nodes[parentIndex].typeName == typeName)
+      result = true;
+    else
+      parentIndex = Nodes[parentIndex].parentIndex;
+  }
+  return result;
+}
+
+function SetNodesExpanded(nNodeIndex, bExpanded, nLevels) {
+  var firstChildIndex = Nodes[nNodeIndex].firstChildIndex;
+  if (firstChildIndex) {
+    Nodes[nNodeIndex].expanded = bExpanded;
+    if (nLevels > 1) {
+      var nextNodeIndex = firstChildIndex;
+      var nNextLevels = nLevels - 1;
+      while (nextNodeIndex) {
+        SetNodesExpanded(nextNodeIndex, bExpanded, nNextLevels);
+        nextNodeIndex = Nodes[nextNodeIndex].nextIndex;
+      }
+    }
+  }
+}
+
+function CopyChildNodes(destNodeIndex, sourceNodeIndex) {
+  var firstChildIndex = Nodes[sourceNodeIndex].firstChildIndex;
+
+  if (firstChildIndex) {
+    var sourceNode = Nodes[firstChildIndex];
+    var newNode = {};
+    newNode.parentIndex = destNodeIndex;
+    newNode.name = sourceNode.name;
+    newNode.type = sourceNode.type;
+    newNode.typeName = sourceNode.typeName;
+    newNode.baseTypeName = sourceNode.baseTypeName;
+    newNode.minOccurs = sourceNode.minOccurs;
+    newNode.maxOccurs = sourceNode.maxOccurs;
+    newNode.minLength = sourceNode.minLength;
+    newNode.maxLength = sourceNode.maxLength;
+    newNode.annotation = sourceNode.annotation;
+    newNode.enumeration = sourceNode.enumeration;
+    newNode.attributes = sourceNode.attributes;
+    newNode.typeDescription = sourceNode.typeDescription;
+    newNode.totalDigits = sourceNode.totalDigits;
+    newNode.fractionDigits = sourceNode.fractionDigits;
+    newNode.minInclusive = sourceNode.minInclusive;
+    newNode.maxInclusive = sourceNode.maxInclusive;
+    newNode.minExclusive = sourceNode.minExclusive;
+    newNode.maxExclusive = sourceNode.maxExclusive;
+    newNode.pattern = sourceNode.pattern;
+    newNode.isRestriction = sourceNode.isRestriction;
+    if (newNode.attributes) newNode.showAttributes = true;
+
+    var newNodeIndex = Nodes.length;
+    Nodes.push(newNode);
+    Nodes[destNodeIndex].firstChildIndex = newNodeIndex;
+
+    CopyChildNodes(newNodeIndex, firstChildIndex);
+
+    var nextSourceIndex = sourceNode.nextIndex;
+    while (nextSourceIndex) {
+      var previousIndex = newNodeIndex;
+      sourceNode = Nodes[nextSourceIndex];
+      newNode = {};
+      newNode.parentIndex = destNodeIndex;
+      newNode.name = sourceNode.name;
+      newNode.type = sourceNode.type;
+      newNode.typeName = sourceNode.typeName;
+      newNode.baseTypeName = sourceNode.baseTypeName;
+      newNode.minOccurs = sourceNode.minOccurs;
+      newNode.maxOccurs = sourceNode.maxOccurs;
+      newNode.minLength = sourceNode.minLength;
+      newNode.maxLength = sourceNode.maxLength;
+      newNode.annotation = sourceNode.annotation;
+      newNode.enumeration = sourceNode.enumeration;
+      newNode.attributes = sourceNode.attributes;
+      newNode.typeDescription = sourceNode.typeDescription;
+      newNode.totalDigits = sourceNode.totalDigits;
+      newNode.fractionDigits = sourceNode.fractionDigits;
+      newNode.minInclusive = sourceNode.minInclusive;
+      newNode.maxInclusive = sourceNode.maxInclusive;
+      newNode.minExclusive = sourceNode.minExclusive;
+      newNode.maxExclusive = sourceNode.maxExclusive;
+      newNode.pattern = sourceNode.pattern;
+      newNode.isRestriction = sourceNode.isRestriction;
+      if (newNode.attributes) newNode.showAttributes = true;
+
+      newNodeIndex = Nodes.length;
+      Nodes.push(newNode);
+      Nodes[previousIndex].nextIndex = newNodeIndex;
+
+      CopyChildNodes(newNodeIndex, nextSourceIndex);
+      nextSourceIndex = sourceNode.nextIndex;
+    }
+  } else {
+    if (bResolveComplexTypes) {
+      if (Nodes[destNodeIndex].type == NodeTypeComplex)
+        ResolveComplexType(destNodeIndex);
+      var baseTypeName = Nodes[sourceNodeIndex].baseTypeName;
+      if (baseTypeName && baseTypeName.length > 0)
+        ResolveSimpleBaseType(destNodeIndex);
+    }
+  }
+}
+
+function ResolveComplexType(nodeIndex) {
+  var typeName = Nodes[nodeIndex].typeName;
+  var complexTypeIndex = null;
+  var i = 1;
+
+  if (typeName) {
+    while (i < ComplexTypes.length && !complexTypeIndex) {
+      if (ComplexTypes[i].name == typeName)
+        complexTypeIndex = i;
+      else
+        i++;
+    }
+  }
+
+  if (complexTypeIndex != null) {
+    if (TypeNameUsedAbove(nodeIndex, typeName))
+      Nodes[nodeIndex].recursiveType = true;
+    else {
+      var sourceNodeIndex = ComplexTypes[complexTypeIndex].nodeIndex;
+      Nodes[nodeIndex].baseTypeName = Nodes[sourceNodeIndex].baseTypeName;
+      if (Nodes[sourceNodeIndex].firstChildIndex)
+        CopyChildNodes(nodeIndex, ComplexTypes[complexTypeIndex].nodeIndex);
+      UpdateTypeDescription(nodeIndex);
+    }
+  }
+
+  if (complexTypeIndex == null && typeName) {
+    var simpleTypeIndex = null;
+    i = 1;
+    while (i < SimpleTypes.length && !simpleTypeIndex) {
+      if (SimpleTypes[i].name == typeName)
+        simpleTypeIndex = i;
+      else
+        i++;
+    }
+    if (simpleTypeIndex) {
+      var sourceNodeIndex = SimpleTypes[simpleTypeIndex].nodeIndex;
+      Nodes[nodeIndex].baseTypeName = Nodes[sourceNodeIndex].baseTypeName;
+      Nodes[nodeIndex].minLength = Nodes[sourceNodeIndex].minLength;
+      Nodes[nodeIndex].maxLength = Nodes[sourceNodeIndex].maxLength;
+      Nodes[nodeIndex].pattern = Nodes[sourceNodeIndex].pattern;
+      Nodes[nodeIndex].enumeration = Nodes[sourceNodeIndex].enumeration;
+      Nodes[nodeIndex].totalDigits = Nodes[sourceNodeIndex].totalDigits;
+      Nodes[nodeIndex].fractionDigits = Nodes[sourceNodeIndex].fractionDigits;
+      Nodes[nodeIndex].minInclusive = Nodes[sourceNodeIndex].minInclusive;
+      Nodes[nodeIndex].maxInclusive = Nodes[sourceNodeIndex].maxInclusive;
+      Nodes[nodeIndex].minExclusive = Nodes[sourceNodeIndex].minExclusive;
+      Nodes[nodeIndex].maxExclusive = Nodes[sourceNodeIndex].maxExclusive;
+      UpdateTypeDescription(nodeIndex);
+    }
+  }
+}
+
+function ResolveSimpleBaseType(nodeIndex) {
+  var baseTypeName = Nodes[nodeIndex].baseTypeName;
+  var simpleTypeIndex = null;
+  var i = 1;
+
+  while (i < SimpleTypes.length && !simpleTypeIndex) {
+    if (SimpleTypes[i].name == baseTypeName)
+      simpleTypeIndex = i;
+    else
+      i++;
+  }
+  if (simpleTypeIndex) {
+    var sourceNodeIndex = SimpleTypes[simpleTypeIndex].nodeIndex;
+    if (!Nodes[nodeIndex].minLength)
+      Nodes[nodeIndex].minLength = Nodes[sourceNodeIndex].minLength;
+    if (!Nodes[nodeIndex].maxLength)
+      Nodes[nodeIndex].maxLength = Nodes[sourceNodeIndex].maxLength;
+    if (!Nodes[nodeIndex].pattern)
+      Nodes[nodeIndex].pattern = Nodes[sourceNodeIndex].pattern;
+    if (!Nodes[nodeIndex].enumeration || Nodes[nodeIndex].enumeration.length == 0)
+      Nodes[nodeIndex].enumeration = Nodes[sourceNodeIndex].enumeration;
+    if (!Nodes[nodeIndex].totalDigits)
+      Nodes[nodeIndex].totalDigits = Nodes[sourceNodeIndex].totalDigits;
+    if (!Nodes[nodeIndex].fractionDigits)
+      Nodes[nodeIndex].fractionDigits = Nodes[sourceNodeIndex].fractionDigits;
+    if (!Nodes[nodeIndex].minInclusive)
+      Nodes[nodeIndex].minInclusive = Nodes[sourceNodeIndex].minInclusive;
+    if (!Nodes[nodeIndex].maxInclusive)
+      Nodes[nodeIndex].maxInclusive = Nodes[sourceNodeIndex].maxInclusive;
+    if (!Nodes[nodeIndex].minExclusive)
+      Nodes[nodeIndex].minExclusive = Nodes[sourceNodeIndex].minExclusive;
+    if (!Nodes[nodeIndex].maxExclusive)
+      Nodes[nodeIndex].maxExclusive = Nodes[sourceNodeIndex].maxExclusive;
+    UpdateTypeDescription(nodeIndex);
+  }
+}
+
+function LoadComplexTypes(node) {
+  var childNodes = node.childNodes;
+  for (var i = 0; i < childNodes.length; i++) {
+    if (childNodes[i].nodeType == 1 && childNodes[i].nodeName == xsdType + ':complexType') {
+      var complexType = {};
+      complexType.name = childNodes[i].getAttribute("name");
+      var mynode = {};
+      mynode.name = complexType.name;
+      mynode.type = NodeTypeComplex;
+      var nodeCount = Nodes.length;
+      Nodes.push(mynode);
+      complexType.nodeIndex = nodeCount;
+      ParseComplexTypeNode(childNodes[i], nodeCount);
+      ComplexTypes.push(complexType);
+    }
+  }
+}
+
+function LoadSimpleTypes(node) {
+  var childNodes = node.childNodes;
+  for (var i = 0; i < childNodes.length; i++) {
+    if (childNodes[i].nodeType == 1 && childNodes[i].nodeName == xsdType + ':simpleType') {
+      var simpleType = {};
+      simpleType.name = childNodes[i].getAttribute("name");
+      var mynode = {};
+      mynode.name = simpleType.name;
+      mynode.type = NodeTypeSimple;
+      var nodeCount = Nodes.length;
+      Nodes.push(mynode);
+      simpleType.nodeIndex = nodeCount;
+      ParseSimpleTypeNode(childNodes[i], nodeCount);
+      SimpleTypes.push(simpleType);
+    }
+  }
+}
+
+function LoadIncludes(sourcePath, node) {
+  var childNodes = node.childNodes;
+  var nIncludes = 0;
+
+  for (var i = 0; i < childNodes.length; i++) {
+    if (childNodes[i].nodeType == 1 && childNodes[i].nodeName == xsdType + ':include') {
+      var schemaLocation = childNodes[i].getAttribute("schemaLocation");
+      if (schemaLocation) {
+        var schemaURL = sourcePath + schemaLocation;
+        var xhttp = new XMLHttpRequest();
+        xhttp.overrideMimeType('text/xml');
+        xhttp.open("GET", schemaURL, false);
+        xhttp.send(null);
+        var xmlDoc = xhttp.responseXML;
+        nIncludes++;
+
+        var schemaNode = GetFirstChildNode(xmlDoc, xsdType + ':schema');
+        LoadSimpleTypes(schemaNode);
+        LoadComplexTypes(schemaNode);
+      }
+    }
+  }
+  return nIncludes;
+}
+
+function LoadGlobalElements(node) {
+  var childNodes = node.childNodes;
+  for (var i = 0; i < childNodes.length; i++) {
+    if (childNodes[i].nodeType == 1 && childNodes[i].nodeName == xsdType + ':element') {
+      var elemName = childNodes[i].getAttribute("name");
+      if (elemName) {
+        GlobalElements.push({ name: elemName, node: childNodes[i] });
+      }
+    }
+  }
+}
+
+function ResolveElementRef(nodeIndex) {
+  var refName = Nodes[nodeIndex].ref;
+  if (!refName) return;
+
+  // Find the global element
+  var globalElem = null;
+  for (var i = 0; i < GlobalElements.length; i++) {
+    if (GlobalElements[i].name == refName) {
+      globalElem = GlobalElements[i];
+      break;
+    }
+  }
+
+  if (globalElem) {
+    var elemNode = globalElem.node;
+    Nodes[nodeIndex].name = refName;
+    Nodes[nodeIndex].typeName = elemNode.getAttribute("type");
+
+    // Get annotation from the referenced element if we don't have one
+    if (!Nodes[nodeIndex].annotation) {
+      var annotationNode = GetFirstChildNode(elemNode, xsdType + ':annotation');
+      if (annotationNode) {
+        var docNode = GetFirstChildNode(annotationNode, xsdType + ':documentation');
+        if (docNode) Nodes[nodeIndex].annotation = docNode.textContent;
+      }
+    }
+
+    if (Nodes[nodeIndex].typeName && Nodes[nodeIndex].typeName.length > 0) {
+      if (Nodes[nodeIndex].typeName.substr(0, xsdType.length + 1) != xsdType + ':')
+        Nodes[nodeIndex].type = NodeTypeComplex;
+      ResolveComplexType(nodeIndex);
+    } else {
+      // Inline type on the referenced element
+      var complexTypeNode = GetFirstChildNode(elemNode, xsdType + ':complexType');
+      if (complexTypeNode) {
+        Nodes[nodeIndex].type = NodeTypeComplex;
+        ParseComplexTypeNode(complexTypeNode, nodeIndex);
+      }
+      var simpleTypeNode = GetFirstChildNode(elemNode, xsdType + ':simpleType');
+      if (simpleTypeNode) {
+        ParseSimpleTypeNode(simpleTypeNode, nodeIndex);
+      }
+    }
+    UpdateTypeDescription(nodeIndex);
+  }
+}
+
+function LoadKeys(rootElement) {
+  var childNodes = rootElement.childNodes;
+  var keys = [];
+
+  for (var i = 0; i < childNodes.length; i++) {
+    if (childNodes[i].nodeType == 1) {
+      var nodeName = childNodes[i].nodeName;
+      if (nodeName == xsdType + ':key' || nodeName == xsdType + ':unique') {
+        var key = {};
+        key.name = childNodes[i].getAttribute("name");
+        key.type = (nodeName == xsdType + ':unique') ? 'unique' : 'key';
+        var selectorNode = GetFirstChildNode(childNodes[i], xsdType + ':selector');
+        if (selectorNode) key.selector = selectorNode.getAttribute("xpath");
+        var fieldNode = GetFirstChildNode(childNodes[i], xsdType + ':field');
+        if (fieldNode) key.field = fieldNode.getAttribute("xpath");
+
+        var annotationNode = GetFirstChildNode(childNodes[i], xsdType + ':annotation');
+        if (annotationNode) {
+          var docNode = GetFirstChildNode(annotationNode, xsdType + ':documentation');
+          if (docNode) key.annotation = docNode.textContent;
+        }
+        keys.push(key);
+      }
+    }
+  }
+  return keys;
+}
+
+function LoadKeyRefs(rootElement) {
+  var childNodes = rootElement.childNodes;
+  var keyrefs = [];
+
+  for (var i = 0; i < childNodes.length; i++) {
+    if (childNodes[i].nodeType == 1 && childNodes[i].nodeName == xsdType + ':keyref') {
+      var keyref = {};
+      keyref.name = childNodes[i].getAttribute("name");
+      keyref.refer = childNodes[i].getAttribute("refer");
+      var selectorNode = GetFirstChildNode(childNodes[i], xsdType + ':selector');
+      if (selectorNode) keyref.selector = selectorNode.getAttribute("xpath");
+      var fieldNode = GetFirstChildNode(childNodes[i], xsdType + ':field');
+      if (fieldNode) keyref.field = fieldNode.getAttribute("xpath");
+      keyrefs.push(keyref);
+    }
+  }
+  return keyrefs;
+}
+
+
+// ===== js/layout.js =====
+// ===== NODE LAYOUT & SIZING =====
+
+function SetNodeSize(ctx, nodeIndex, recursive) {
+  var typeWidth = 0;
+  var annotationWidth = 0;
+
+  if (!IsRealNode(Nodes[nodeIndex].type)) {
+    Nodes[nodeIndex].height = nSequenceHeight;
+    Nodes[nodeIndex].width = nSequenceWidth;
+  } else {
+    var height = nNodeHeight;
+    ctx.font = sNodeNameFont;
+    var width = ctx.measureText(Nodes[nodeIndex].name).width + nNodeTextPadding * 2;
+
+    if (Nodes[nodeIndex].firstChildIndex)
+      width += nExpanderHalfSize;
+
+    if (Nodes[nodeIndex].attributes) {
+      width += nExpanderSize;
+      if (Nodes[nodeIndex].showAttributes) {
+        var i, width2 = 0;
+        for (i = 0; i < Nodes[nodeIndex].attributes.length; i++) {
+          if (Nodes[nodeIndex].attributes[i].use == "required")
+            ctx.font = sMandatoryAttributeNameFont;
+          else
+            ctx.font = sOptionalAttributeNameFont;
+          width2 = Math.max(width2, ctx.measureText(Nodes[nodeIndex].attributes[i].name).width);
+        }
+        height += Nodes[nodeIndex].attributes.length * nAttributeLineHeight + nAttributeVerPadding * 2;
+        width = Math.max(width, width2 + nNodeTextPadding * 2);
+      }
+    }
+
+    Nodes[nodeIndex].height = Math.round(height);
+    Nodes[nodeIndex].width = Math.round(width);
+  }
+
+  var sText = Nodes[nodeIndex].typeDescription;
+  if (sText && sText.length > 0) {
+    ctx.font = sTypeDescriptionFont;
+    typeWidth = ctx.measureText(sText).width;
+  }
+
+  sText = Nodes[nodeIndex].annotation;
+  if (sText && sText.length > 0) {
+    ctx.font = sAnnotationFont;
+    var totalTextWidth = ctx.measureText(sText).width;
+    var annotationLines = [];
+    var nChars = 0, nPartWidth = 0, nChars2 = 0, nPartWidth2 = 0;
+    var sPart = "", sPart2 = "", chr = " ";
+
+    while (totalTextWidth > nMaxAnnotationWidth) {
+      nChars = Math.round((sText.length * nMaxAnnotationWidth) / totalTextWidth);
+      sPart = sText.substr(0, nChars);
+      nPartWidth = ctx.measureText(sPart).width;
+
+      if (nPartWidth < nMaxAnnotationWidth) {
+        nChars2 = nChars + 1;
+        sPart2 = sText.substr(0, nChars2);
+        nPartWidth2 = ctx.measureText(sPart2).width;
+        while (nPartWidth2 <= nMaxAnnotationWidth) {
+          nChars = nChars2;
+          sPart = sPart2;
+          nPartWidth = nPartWidth2;
+          nChars2 = nChars + 1;
+          sPart2 = sText.substr(0, nChars2);
+          nPartWidth2 = ctx.measureText(sPart2).width;
+        }
+      }
+
+      if (nPartWidth > nMaxAnnotationWidth) {
+        nChars2 = nChars - 1;
+        sPart2 = sText.substr(0, nChars2);
+        nPartWidth2 = ctx.measureText(sPart2).width;
+        while (nPartWidth2 > nMaxAnnotationWidth) {
+          nChars = nChars2;
+          sPart = sPart2;
+          nPartWidth = nPartWidth2;
+          nChars2 = nChars - 1;
+          sPart2 = sText.substr(0, nChars2);
+          nPartWidth2 = ctx.measureText(sPart2).width;
+        }
+      }
+
+      nChars2 = nChars;
+      chr = sText.substr(nChars, 1);
+      while (nChars2 > 10 && sTextDelimeters.indexOf(chr) < 0) {
+        nChars2--;
+        chr = sText.substr(nChars2, 1);
+      }
+
+      if (sTextDelimeters.indexOf(chr) >= 0) {
+        sPart = sText.substr(0, nChars2);
+        annotationLines.push(sPart);
+        sText = sText.substr(nChars2 + 1, 999);
+      } else {
+        nChars2 = nChars - 1;
+        sPart = sText.substr(0, nChars2) + "-";
+        annotationLines.push(sPart);
+        sText = sText.substr(nChars2, 999);
+      }
+
+      totalTextWidth = ctx.measureText(sText).width;
+    }
+
+    annotationLines.push(sText);
+
+    for (var i = 0; i < annotationLines.length; i++)
+      annotationWidth = Math.max(annotationWidth, ctx.measureText(annotationLines[i]).width);
+
+    Nodes[nodeIndex].annotationLines = annotationLines;
+    Nodes[nodeIndex].footerHeight = Math.round((nAnnotationTextHeight + nAnnotationLineDistance) * annotationLines.length);
+  } else {
+    Nodes[nodeIndex].footerHeight = 0;
+    Nodes[nodeIndex].footerWidth = 0;
+  }
+
+  Nodes[nodeIndex].footerWidth = Math.round(Math.max(typeWidth, annotationWidth));
+
+  var totalHeight = Nodes[nodeIndex].height + Nodes[nodeIndex].footerHeight;
+
+  if (IsMultiple(Nodes[nodeIndex].maxOccurs))
+    totalHeight += nMultipleNodeOffset;
+
+  if (Nodes[nodeIndex].typeDescription)
+    totalHeight += nAnnotationTextHeight + nAnnotationLineDistance;
+
+  if (totalHeight > 0)
+    totalHeight += nAnnotationDistance - nAnnotationLineDistance;
+
+  Nodes[nodeIndex].totalHeight = totalHeight;
+
+  if (recursive) {
+    var nextNodeIndex = Nodes[nodeIndex].firstChildIndex;
+    while (nextNodeIndex) {
+      SetNodeSize(ctx, nextNodeIndex, recursive);
+      nextNodeIndex = Nodes[nextNodeIndex].nextIndex;
+    }
+  }
+}
+
+function CurrentTotalHeight(nodeIndex) {
+  var bAddBaseDistance = false;
+  var totalHeight = Nodes[nodeIndex].height;
+
+  if (IsMultiple(Nodes[nodeIndex].maxOccurs))
+    totalHeight += nMultipleNodeOffset;
+
+  if (Nodes[nodeIndex].typeDescription && bShowTypeInfo) {
+    totalHeight += nAnnotationTextHeight + nAnnotationLineDistance;
+    bAddBaseDistance = true;
+  }
+
+  if (Nodes[nodeIndex].annotation && bShowAnnotations) {
+    totalHeight += Nodes[nodeIndex].footerHeight;
+    bAddBaseDistance = true;
+  }
+
+  if (bAddBaseDistance)
+    totalHeight += nAnnotationDistance - nAnnotationLineDistance;
+
+  return totalHeight;
+}
+
+function SetNodeSizes() {
+  var canvas = document.getElementById("tree");
+  var ctx = canvas.getContext("2d");
+  ctx.font = sNodeNameFont;
+  SetNodeSize(ctx, rootNodeIndex, true);
+}
+
+function GetTreeHeight(nodeIndex) {
+  var nodeHeight = CurrentTotalHeight(nodeIndex);
+  var childrenHeight = 0 - nVerNodeDistance;
+  var result = nodeHeight;
+
+  if (Nodes[nodeIndex].expanded) {
+    var nextNodeIndex = Nodes[nodeIndex].firstChildIndex;
+    while (nextNodeIndex) {
+      childrenHeight += GetTreeHeight(nextNodeIndex) + nVerNodeDistance;
+      nextNodeIndex = Nodes[nextNodeIndex].nextIndex;
+    }
+  }
+
+  if (childrenHeight > 0) {
+    Nodes[nodeIndex].childrenHeight = childrenHeight;
+    result = childrenHeight;
+  }
+
+  return result;
+}
+
+function SetVerNodePosition(nodeIndex, y) {
+  var verPosition = y;
+  var nHalfHeight = Nodes[nodeIndex].height / 2;
+  var firstChildIndex = Nodes[nodeIndex].firstChildIndex;
+
+  if (firstChildIndex && Nodes[nodeIndex].expanded) {
+    var nextNodeIndex = firstChildIndex;
+    var previousNodeIndex;
+
+    while (nextNodeIndex) {
+      verPosition = SetVerNodePosition(nextNodeIndex, verPosition);
+      previousNodeIndex = nextNodeIndex;
+      nextNodeIndex = Nodes[nextNodeIndex].nextIndex;
+    }
+
+    Nodes[nodeIndex].verCenter = Math.round((Nodes[firstChildIndex].verCenter + Nodes[previousNodeIndex].verCenter) / 2);
+    Nodes[nodeIndex].top = Nodes[nodeIndex].verCenter - nHalfHeight;
+    Nodes[nodeIndex].bottom = Nodes[nodeIndex].top + Nodes[nodeIndex].height;
+
+    verPosition = Math.max(verPosition, Nodes[nodeIndex].top + CurrentTotalHeight(nodeIndex) + nVerNodeDistance);
+  } else {
+    Nodes[nodeIndex].top = y;
+    Nodes[nodeIndex].verCenter = y + nHalfHeight;
+    Nodes[nodeIndex].bottom = y + Nodes[nodeIndex].height;
+    verPosition += CurrentTotalHeight(nodeIndex) + nVerNodeDistance;
+    nSchemaWidth = Math.max(nSchemaWidth, Nodes[nodeIndex].left + Nodes[nodeIndex].totalWidth);
+  }
+
+  return verPosition;
+}
+
+function SetVerNodePositions() {
+  nSchemaHeight = 0;
+  nSchemaWidth = 0;
+  nSchemaHeight = SetVerNodePosition(rootNodeIndex, nSchemaBorder);
+}
+
+function ChildNodeCount(nodeIndex) {
+  var result = 0;
+  var nextNodeIndex = Nodes[nodeIndex].firstChildIndex;
+  while (nextNodeIndex) {
+    result++;
+    nextNodeIndex = Nodes[nextNodeIndex].nextIndex;
+  }
+  return result;
+}
+
+function SetHorNodePosition(nodeIndex, x, recursive, visible) {
+  var nodeType = Nodes[nodeIndex].type;
+  var firstChildIndex = Nodes[nodeIndex].firstChildIndex;
+
+  Nodes[nodeIndex].left = x;
+  var width = Nodes[nodeIndex].width;
+  var right = x + width;
+  Nodes[nodeIndex].right = right;
+  Nodes[nodeIndex].expHorCenter = -999;
+  Nodes[nodeIndex].visible = visible;
+
+  if (firstChildIndex) {
+    if (nodeType == NodeTypeChoice || nodeType == NodeTypeSequence || nodeType == NodeTypeAll) {
+      Nodes[nodeIndex].expHorCenter = right + nExpanderHalfSize;
+      width += nExpanderSize;
+    } else {
+      Nodes[nodeIndex].expHorCenter = right;
+      width += nExpanderHalfSize;
+    }
+  }
+
+  Nodes[nodeIndex].totalWidth = Math.max(width + nMinHorLineLength, Nodes[nodeIndex].footerWidth - nSequenceWidth);
+
+  if ((nodeType == NodeTypeChoice || nodeType == NodeTypeSequence || nodeType == NodeTypeAll) && ChildNodeCount(nodeIndex) > 1)
+    Nodes[nodeIndex].totalWidth += nMinHorLineLength;
+
+  var nextHorPos = x + Nodes[nodeIndex].totalWidth;
+
+  var nextNodeIndex = firstChildIndex;
+  var childrenVisible = visible && Nodes[nodeIndex].expanded;
+
+  while (nextNodeIndex) {
+    SetHorNodePosition(nextNodeIndex, nextHorPos, recursive, childrenVisible);
+    nextNodeIndex = Nodes[nextNodeIndex].nextIndex;
+  }
+}
+
+function CalcNodePositions() {
+  nSchemaHeight = 0;
+  nSchemaWidth = 0;
+  GetTreeHeight(rootNodeIndex);
+  SetVerNodePositions();
+  SetHorNodePosition(rootNodeIndex, nSchemaBorder, true, true);
+  // Recalculate nSchemaWidth from visible nodes only
+  nSchemaWidth = 0;
+  for (var i = 1; i < Nodes.length; i++) {
+    if (Nodes[i].visible !== false && Nodes[i].left !== undefined && Nodes[i].totalWidth !== undefined) {
+      nSchemaWidth = Math.max(nSchemaWidth, Nodes[i].left + Nodes[i].totalWidth);
+    }
+  }
+}
+
+function GetMaxChildWidth(nodeIndex) {
+  var result = 0;
+  var nextNodeIndex = Nodes[nodeIndex].firstChildIndex;
+  while (nextNodeIndex) {
+    result = Math.max(result, Nodes[nextNodeIndex].totalWidth);
+    nextNodeIndex = Nodes[nextNodeIndex].nextIndex;
+  }
+  return result;
+}
+
+function ExpandChoiceNodes(nodeIndex) {
+  var nextNodeIndex = Nodes[nodeIndex].firstChildIndex;
+  while (nextNodeIndex) {
+    if (Nodes[nextNodeIndex].type == NodeTypeChoice)
+      Nodes[nextNodeIndex].expanded = true;
+    nextNodeIndex = Nodes[nextNodeIndex].nextIndex;
+  }
+}
+
+
+// ===== js/renderer.js =====
+// ===== CANVAS RENDERER =====
+
+function SetCanvasSize(w, h) {
+  var dpr = window.devicePixelRatio || 1;
+  canvas.width = w * dpr;
+  canvas.height = h * dpr;
+  canvas.style.width = w + "px";
+  canvas.style.height = h + "px";
+  canvas.getContext("2d").setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+
+function resizeCanvasToContainer() {
+  var container = document.getElementById("canvas-container");
+  var w = container.clientWidth;
+  var h = container.clientHeight;
+  if (w > 0 && h > 0) {
+    SetCanvasSize(w, h);
+  }
+}
+
+// --- Dark mode aware colors ---
+function getColors() {
+  var dark = document.body.classList.contains('dark-mode');
+  return {
+    line: dark ? '#585b70' : '#9ca3af',
+    shadow: dark ? 'rgba(0,0,0,0.25)' : 'rgba(0,0,0,0.10)',
+    nodeBg: dark ? '#313244' : '#ffffff',
+    nodeBgOptional: dark ? '#2a2a3c' : '#f8fafc',
+    selectedBg: dark ? '#1e3a5f' : '#eff6ff',
+    nodeName: dark ? '#cdd6f4' : '#1e293b',
+    requiredBorder: dark ? '#89b4fa' : '#3b82f6',
+    optionalBorder: dark ? '#585b70' : '#cbd5e1',
+    selectedBorder: dark ? '#89b4fa' : '#3b82f6',
+    annotation: dark ? '#7f849c' : '#64748b',
+    attrName: dark ? '#89b4fa' : '#475569',
+    expanderBg: dark ? '#313244' : '#ffffff',
+    expanderBorder: dark ? '#585b70' : '#94a3b8',
+    expanderIcon: dark ? '#a6adc8' : '#64748b',
+    typeBadgeBg: dark ? '#45475a' : '#f1f5f9',
+    typeBadgeColor: dark ? '#a6adc8' : '#64748b',
+    points: dark ? '#585b70' : '#94a3b8',
+    seqChoiceBg: dark ? '#45475a' : '#f1f5f9',
+    seqChoiceBorder: dark ? '#585b70' : '#cbd5e1',
+    seqChoiceDot: dark ? '#a6adc8' : '#64748b'
+  };
+}
+
+function DrawLine(ctx, x1, y1, x2, y2) {
+  var c = getColors();
+  ctx.beginPath();
+  ctx.lineWidth = nLineWidth;
+  ctx.strokeStyle = c.line;
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2, y2);
+  ctx.stroke();
+}
+
+function IsMultiple(maxOccurs) {
+  return (maxOccurs > 1 || maxOccurs < 0);
+}
+
+// --- Modern expander: circle with + or − ---
+function DrawExpander(ctx, px, py, bExpanded) {
+  var c = getColors();
+  var r = nExpanderRadius;
+
+  // Circle
+  ctx.beginPath();
+  ctx.arc(px, py, r, 0, 2 * Math.PI);
+  ctx.fillStyle = c.expanderBg;
+  ctx.fill();
+  ctx.lineWidth = 1.5;
+  ctx.strokeStyle = c.expanderBorder;
+  ctx.stroke();
+
+  // + or −
+  ctx.beginPath();
+  ctx.strokeStyle = c.expanderIcon;
+  ctx.lineWidth = 1.5;
+  ctx.lineCap = 'round';
+  // Horizontal line (always)
+  ctx.moveTo(px - 4, py);
+  ctx.lineTo(px + 4, py);
+  if (!bExpanded) {
+    // Vertical line for +
+    ctx.moveTo(px, py - 4);
+    ctx.lineTo(px, py + 4);
+  }
+  ctx.stroke();
+  ctx.lineCap = 'butt';
+}
+
+function DrawAttrExpander(ctx, px, py, bExpanded) {
+  // Reuse same style but smaller
+  var c = getColors();
+  var r = nExpanderRadius * 0.7;
+
+  ctx.beginPath();
+  ctx.arc(px, py, r, 0, 2 * Math.PI);
+  ctx.fillStyle = c.expanderBg;
+  ctx.fill();
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = c.expanderBorder;
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.strokeStyle = c.expanderIcon;
+  ctx.lineWidth = 1;
+  ctx.lineCap = 'round';
+  if (bExpanded) {
+    ctx.moveTo(px - 3, py);
+    ctx.lineTo(px + 3, py);
+  } else {
+    ctx.moveTo(px - 3, py);
+    ctx.lineTo(px + 3, py);
+    ctx.moveTo(px, py - 3);
+    ctx.lineTo(px, py + 3);
+  }
+  ctx.stroke();
+  ctx.lineCap = 'butt';
+}
+
+function DrawAnnotation(ctx, nodeIndex) {
+  var node = Nodes[nodeIndex];
+  var c = getColors();
+  var y = node.bottom + nAnnotationDistance;
+
+  if (node.maxOccurs > 1 || node.maxOccurs < 0)
+    y += nMultipleNodeOffset;
+
+  if (node.typeDescription && bShowTypeInfo) {
+    ctx.font = sTypeDescriptionFont;
+    ctx.fillStyle = c.annotation;
+    ctx.fillText(node.typeDescription, node.left, y + nAnnotationTextHeight);
+    y += nAnnotationTextHeight + nAnnotationLineDistance;
+  }
+
+  if (node.annotation && bShowAnnotations && node.annotationLines) {
+    for (var i = 0; i < node.annotationLines.length; i++) {
+      ctx.font = sAnnotationFont;
+      ctx.fillStyle = c.annotation;
+      ctx.fillText(node.annotationLines[i], node.left, y + nAnnotationTextHeight);
+      y += nAnnotationTextHeight + nAnnotationLineDistance;
+    }
+  }
+}
+
+// --- Rounded rectangle helper ---
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+function DrawOctagonShape(ctx, left, top, width, height, corner) {
+  var right = left + width;
+  var bottom = top + height;
+  ctx.moveTo(left + corner, top);
+  ctx.lineTo(right - corner, top);
+  ctx.lineTo(right, top + corner);
+  ctx.lineTo(right, bottom - corner);
+  ctx.lineTo(right - corner, bottom);
+  ctx.lineTo(left + corner, bottom);
+  ctx.lineTo(left, bottom - corner);
+  ctx.lineTo(left, top + corner);
+  ctx.lineTo(left + corner, top);
+}
+
+function DrawOctagonWithShadow(ctx, nodeIndex) {
+  var node = Nodes[nodeIndex];
+  var c = getColors();
+
+  // Shadow
+  ctx.beginPath();
+  ctx.fillStyle = c.shadow;
+  DrawOctagonShape(ctx, node.left + nShadowOffset, node.top + nShadowOffset, nSequenceWidth, nSequenceHeight, nSequenceCornerSize);
+  ctx.fill();
+
+  // Fill
+  ctx.beginPath();
+  ctx.fillStyle = (nodeIndex == nLastClickedNodeIndex) ? c.selectedBg : c.seqChoiceBg;
+  DrawOctagonShape(ctx, node.left, node.top, nSequenceWidth, nSequenceHeight, nSequenceCornerSize);
+  ctx.fill();
+
+  // Border
+  ctx.beginPath();
+  ctx.lineWidth = 1.5;
+  ctx.strokeStyle = (nodeIndex == nLastClickedNodeIndex) ? c.selectedBorder : c.seqChoiceBorder;
+  DrawOctagonShape(ctx, node.left, node.top, nSequenceWidth, nSequenceHeight, nSequenceCornerSize);
+  ctx.stroke();
+}
+
+function DrawPoints(ctx, nodeIndex) {
+  var node = Nodes[nodeIndex];
+  var c = getColors();
+  var xx = node.right + nPointsDistance * 2;
+  var yy = node.verCenter - nPointsHalfSize;
+  ctx.fillStyle = c.points;
+  for (var i = 3; i > 0; i--) {
+    ctx.beginPath();
+    ctx.arc(xx + nPointsSize / 2, yy + nPointsSize / 2, nPointsSize / 2, 0, 2 * Math.PI);
+    ctx.fill();
+    xx += nPointsSize + nPointsDistance;
+  }
+}
+
+function DrawSequenceNode(ctx, nodeIndex) {
+  var node = Nodes[nodeIndex];
+  var c = getColors();
+  var right = node.right;
+  DrawOctagonWithShadow(ctx, nodeIndex);
+
+  // Three dots inside
+  var dx = nSequenceWidth / 7;
+  var yy = node.verCenter;
+  var d = dx * 0.35;
+  var xx = node.left + dx * 2;
+
+  ctx.fillStyle = c.seqChoiceDot;
+  ctx.beginPath(); ctx.arc(xx, yy, d, 0, 2 * Math.PI); ctx.fill();
+  xx += dx * 1.5;
+  ctx.beginPath(); ctx.arc(xx, yy, d, 0, 2 * Math.PI); ctx.fill();
+  xx += dx * 1.5;
+  ctx.beginPath(); ctx.arc(xx, yy, d, 0, 2 * Math.PI); ctx.fill();
+
+  DrawAnnotation(ctx, nodeIndex);
+  if (node.firstChildIndex) {
+    DrawExpander(ctx, node.expHorCenter, node.verCenter, node.expanded);
+    right += nExpanderSize;
+  }
+  return right;
+}
+
+function DrawChoiceNode(ctx, nodeIndex) {
+  var node = Nodes[nodeIndex];
+  var c = getColors();
+  var right = node.right;
+  DrawOctagonWithShadow(ctx, nodeIndex);
+
+  // Fork icon inside
+  var dx = nSequenceWidth / 6;
+  var dx2 = dx * 0.66;
+  var xx = node.left + dx;
+  var dy = Math.round(nSequenceHeight / 5) + 0.5;
+  var yy = node.verCenter;
+  var top2 = yy - dy;
+  var bottom2 = yy + dy;
+
+  ctx.beginPath();
+  ctx.strokeStyle = c.seqChoiceDot;
+  ctx.lineWidth = 1;
+  ctx.moveTo(xx, yy); xx += dx; ctx.lineTo(xx, yy); xx += dx; ctx.lineTo(xx, top2 + 0.5);
+  ctx.stroke();
+
+  var d = dx * 0.33;
+  xx += dx - 1;
+  ctx.fillStyle = c.seqChoiceDot;
+  ctx.beginPath(); ctx.arc(xx, top2 - 1, d, 0, 2 * Math.PI); ctx.fill();
+  ctx.beginPath(); ctx.arc(xx + dx2 - 0.5, yy, d, 0, 2 * Math.PI); ctx.fill();
+  ctx.beginPath(); ctx.arc(xx, bottom2 + 1, d, 0, 2 * Math.PI); ctx.fill();
+
+  DrawAnnotation(ctx, nodeIndex);
+  if (node.firstChildIndex) {
+    DrawExpander(ctx, node.expHorCenter, node.verCenter, node.expanded);
+    right += nExpanderSize;
+  }
+  return right;
+}
+
+function DrawAllNode(ctx, nodeIndex) {
+  var node = Nodes[nodeIndex];
+  var c = getColors();
+  var right = node.right;
+  DrawOctagonWithShadow(ctx, nodeIndex);
+
+  // Draw "unordered" icon: two horizontal lines with shuffle arrows
+  var cx = node.left + nSequenceWidth / 2;
+  var yy = node.verCenter;
+  var hw = nSequenceWidth * 0.22;
+  var dy = nSequenceHeight * 0.15;
+
+  ctx.strokeStyle = c.seqChoiceDot;
+  ctx.lineWidth = 1.2;
+  ctx.lineCap = 'round';
+
+  // Top line
+  ctx.beginPath();
+  ctx.moveTo(cx - hw, yy - dy);
+  ctx.lineTo(cx + hw, yy - dy);
+  ctx.stroke();
+
+  // Bottom line
+  ctx.beginPath();
+  ctx.moveTo(cx - hw, yy + dy);
+  ctx.lineTo(cx + hw, yy + dy);
+  ctx.stroke();
+
+  // Small arrows indicating "any order"
+  var arrowSize = 2.5;
+  // Up arrow on left
+  ctx.beginPath();
+  ctx.moveTo(cx - hw + 1, yy);
+  ctx.lineTo(cx - hw + 1, yy - dy + 1);
+  ctx.moveTo(cx - hw + 1 - arrowSize, yy - dy + 1 + arrowSize);
+  ctx.lineTo(cx - hw + 1, yy - dy + 1);
+  ctx.lineTo(cx - hw + 1 + arrowSize, yy - dy + 1 + arrowSize);
+  ctx.stroke();
+
+  // Down arrow on right
+  ctx.beginPath();
+  ctx.moveTo(cx + hw - 1, yy);
+  ctx.lineTo(cx + hw - 1, yy + dy - 1);
+  ctx.moveTo(cx + hw - 1 - arrowSize, yy + dy - 1 - arrowSize);
+  ctx.lineTo(cx + hw - 1, yy + dy - 1);
+  ctx.lineTo(cx + hw - 1 + arrowSize, yy + dy - 1 - arrowSize);
+  ctx.stroke();
+
+  ctx.lineCap = 'butt';
+
+  DrawAnnotation(ctx, nodeIndex);
+  if (node.firstChildIndex) {
+    DrawExpander(ctx, node.expHorCenter, node.verCenter, node.expanded);
+    right += nExpanderSize;
+  }
+  return right;
+}
+
+function DrawElementNode(ctx, nodeIndex) {
+  var node = Nodes[nodeIndex];
+  var c = getColors();
+  var right = node.right;
+  var isRequired = node.minOccurs > 0;
+  var isSelected = (nodeIndex == nLastClickedNodeIndex);
+  var borderColor = isSelected ? c.selectedBorder : (isRequired ? c.requiredBorder : c.optionalBorder);
+  var bgColor = isSelected ? c.selectedBg : (isRequired ? c.nodeBg : c.nodeBgOptional);
+  var r = nNodeBorderRadius;
+
+  var rectLeft = node.left;
+  var rectTop = node.top;
+  var rectWidth = node.width;
+  var rectHeight = node.height;
+
+  // Multiple occurrence: stacked card effect
+  if (node.maxOccurs > 1 || node.maxOccurs < 0) {
+    // Back card shadow
+    roundRect(ctx, rectLeft + nMultipleNodeOffset + nShadowOffset, rectTop + nMultipleNodeOffset + nShadowOffset, rectWidth, rectHeight, r);
+    ctx.fillStyle = c.shadow;
+    ctx.fill();
+
+    // Back card
+    roundRect(ctx, rectLeft + nMultipleNodeOffset, rectTop + nMultipleNodeOffset, rectWidth, rectHeight, r);
+    ctx.fillStyle = bgColor;
+    ctx.fill();
+    ctx.lineWidth = isRequired ? 1.5 : 1;
+    ctx.strokeStyle = borderColor;
+    if (!isRequired) ctx.setLineDash([4, 4]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  } else {
+    // Shadow
+    roundRect(ctx, rectLeft + nShadowOffset, rectTop + nShadowOffset, rectWidth, rectHeight, r);
+    ctx.fillStyle = c.shadow;
+    ctx.fill();
+  }
+
+  // Selection ring
+  if (isSelected) {
+    roundRect(ctx, rectLeft - 3, rectTop - 3, rectWidth + 6, rectHeight + 6, r + 2);
+    ctx.strokeStyle = c.selectedBorder;
+    ctx.lineWidth = 2;
+    ctx.setLineDash([]);
+    ctx.stroke();
+  }
+
+  // Main card
+  roundRect(ctx, rectLeft, rectTop, rectWidth, rectHeight, r);
+  ctx.fillStyle = bgColor;
+  ctx.fill();
+  ctx.lineWidth = isRequired ? 1.5 : 1;
+  ctx.strokeStyle = borderColor;
+  if (!isRequired) ctx.setLineDash([4, 4]);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Left accent bar for required nodes
+  if (isRequired && !isSelected) {
+    ctx.beginPath();
+    ctx.fillStyle = c.requiredBorder;
+    var barW = 3;
+    // Clip to rounded corner
+    ctx.save();
+    roundRect(ctx, rectLeft, rectTop, rectWidth, rectHeight, r);
+    ctx.clip();
+    ctx.fillRect(rectLeft, rectTop, barW, rectHeight);
+    ctx.restore();
+  }
+
+  // Node name
+  ctx.font = sNodeNameFont;
+  ctx.fillStyle = c.nodeName;
+  var textX = rectLeft + nNodeTextPadding + (isRequired ? 3 : 0);
+  ctx.fillText(node.name, textX, rectTop + nNodeTextHeight + nNodeTextPadding);
+
+  // Attributes
+  if (Nodes[nodeIndex].attributes) {
+    var i, yy = rectTop + nNodeTextHeight + nNodeTextPadding * 2;
+    if (node.showAttributes) {
+      // Divider line
+      ctx.beginPath();
+      ctx.strokeStyle = c.optionalBorder;
+      ctx.lineWidth = 0.5;
+      ctx.moveTo(rectLeft + 4, yy);
+      ctx.lineTo(rectLeft + rectWidth - 4, yy);
+      ctx.stroke();
+      yy += nAttributeVerPadding;
+      for (i = 0; i < Nodes[nodeIndex].attributes.length; i++) {
+        ctx.font = (node.attributes[i].use == "required") ? sMandatoryAttributeNameFont : sOptionalAttributeNameFont;
+        ctx.fillStyle = c.attrName;
+        ctx.fillText(node.attributes[i].name, rectLeft + nNodeTextPadding, yy + nNodeTextHeight);
+        yy += nAttributeLineHeight;
+      }
+    } else {
+      DrawAttrExpander(ctx, rectLeft + rectWidth - nExpanderRadius - 2, yy, node.showAttributes);
+    }
+  }
+
+  DrawAnnotation(ctx, nodeIndex);
+
+  if (node.firstChildIndex) {
+    DrawExpander(ctx, node.right + nExpanderDistance + nExpanderRadius, node.verCenter, node.expanded);
+    right += nExpanderSize + nExpanderDistance;
+  } else {
+    if (node.recursiveType || node.typeName == xsdType + ':anyType' || node.baseTypeName == xsdType + ':anyType')
+      DrawPoints(ctx, nodeIndex);
+  }
+  return right;
+}
+
+function DrawNode(ctx, nodeIndex, recursive) {
+  var node = Nodes[nodeIndex];
+  var nodeType = node.type;
+  var right;
+
+  if (nodeType == NodeTypeChoice)
+    right = DrawChoiceNode(ctx, nodeIndex);
+  else if (nodeType == NodeTypeSequence)
+    right = DrawSequenceNode(ctx, nodeIndex);
+  else if (nodeType == NodeTypeAll)
+    right = DrawAllNode(ctx, nodeIndex);
+  else
+    right = DrawElementNode(ctx, nodeIndex);
+
+  if (recursive && node.expanded) {
+    var c = getColors();
+    var childCount = ChildNodeCount(nodeIndex);
+    var nextNodeIndex = node.firstChildIndex;
+    var x = node.left + node.totalWidth;
+    var y1 = node.verCenter;
+    var y2 = node.verCenter;
+    if (childCount > 1) x -= nMinHorLineLength;
+    DrawLine(ctx, right, node.verCenter, x, node.verCenter);
+
+    while (nextNodeIndex) {
+      if (childCount > 1) {
+        var y = Nodes[nextNodeIndex].verCenter;
+        DrawLine(ctx, x, y, Nodes[nextNodeIndex].left, y);
+        y1 = Math.min(y1, y);
+        y2 = Math.max(y2, y);
+      }
+      DrawNode(ctx, nextNodeIndex, recursive);
+      nextNodeIndex = Nodes[nextNodeIndex].nextIndex;
+    }
+
+    if (childCount > 1)
+      DrawLine(ctx, x, y1, x, y2);
+  }
+}
+
+
+// ===== js/camera.js =====
+// ===== CAMERA (ZOOM & PAN) =====
+
+var camera = {
+  x: 0,
+  y: 0,
+  zoom: 1.0,
+  minZoom: 0.15,
+  maxZoom: 3.0,
+  zoomStep: 0.1
+};
+
+var isDragging = false;
+var dragStart = { x: 0, y: 0 };
+var isPanMode = false;
+
+function screenToWorld(screenX, screenY) {
+  var rect = canvas.getBoundingClientRect();
+  var canvasX = (screenX - rect.left);
+  var canvasY = (screenY - rect.top);
+  var viewW = rect.width;
+  var viewH = rect.height;
+  return {
+    x: (canvasX - viewW / 2) / camera.zoom + camera.x,
+    y: (canvasY - viewH / 2) / camera.zoom + camera.y
+  };
+}
+
+function worldToScreen(worldX, worldY) {
+  var rect = canvas.getBoundingClientRect();
+  return {
+    x: (worldX - camera.x) * camera.zoom + rect.width / 2,
+    y: (worldY - camera.y) * camera.zoom + rect.height / 2
+  };
+}
+
+function initCamera() {
+  if (rootNodeIndex && Nodes[rootNodeIndex]) {
+    var node = Nodes[rootNodeIndex];
+    camera.x = (node.left + node.width / 2);
+    camera.y = nSchemaHeight / 2;
+  } else {
+    camera.x = nCanvasWidth / 2;
+    camera.y = nCanvasHeight / 2;
+  }
+  camera.zoom = 1.0;
+}
+
+function fitToContent() {
+  if (!rootNodeIndex) return;
+
+  var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (var i = 1; i < Nodes.length; i++) {
+    var n = Nodes[i];
+    if (n.visible === false || n.left === undefined) continue;
+    minX = Math.min(minX, n.left);
+    minY = Math.min(minY, n.top);
+    maxX = Math.max(maxX, n.left + (n.totalWidth || n.width));
+    maxY = Math.max(maxY, n.top + (n.totalHeight || n.height));
+  }
+
+  if (minX === Infinity) return;
+
+  var dpr = window.devicePixelRatio || 1;
+  var viewW = canvas.width / dpr;
+  var viewH = canvas.height / dpr;
+
+  var padding = 40;
+  var contentW = (maxX - minX) + padding * 2;
+  var contentH = (maxY - minY) + padding * 2;
+
+  var zoomX = viewW / contentW;
+  var zoomY = viewH / contentH;
+  camera.zoom = Math.min(zoomX, zoomY, camera.maxZoom);
+  camera.zoom = Math.max(camera.zoom, camera.minZoom);
+
+  camera.x = (minX + maxX) / 2;
+  camera.y = (minY + maxY) / 2;
+}
+
+// --- Hit testing: did click land on the expander circle? ---
+function isExpanderHit(nodeIndex, wx, wy) {
+  var node = Nodes[nodeIndex];
+  if (!node.firstChildIndex) return false;
+
+  var ex, ey;
+  if (node.type == NodeTypeChoice || node.type == NodeTypeSequence) {
+    ex = node.expHorCenter;
+  } else {
+    ex = node.right + nExpanderDistance + nExpanderRadius;
+  }
+  ey = node.verCenter;
+
+  var dx = wx - ex;
+  var dy = wy - ey;
+  // Generous hit area (radius + 4px)
+  return (dx * dx + dy * dy) <= (nExpanderRadius + 4) * (nExpanderRadius + 4);
+}
+
+function setupCameraEvents() {
+  // Wheel zoom
+  canvas.addEventListener('wheel', function (e) {
+    e.preventDefault();
+    var worldBefore = screenToWorld(e.clientX, e.clientY);
+
+    var direction = e.deltaY > 0 ? -1 : 1;
+    var factor = 1 + camera.zoomStep;
+    if (direction > 0) camera.zoom *= factor;
+    else camera.zoom /= factor;
+    camera.zoom = Math.max(camera.minZoom, Math.min(camera.maxZoom, camera.zoom));
+
+    var worldAfter = screenToWorld(e.clientX, e.clientY);
+    camera.x += worldBefore.x - worldAfter.x;
+    camera.y += worldBefore.y - worldAfter.y;
+
+    DrawTree();
+    updateZoomDisplay();
+  }, { passive: false });
+
+  // Mouse drag pan + click
+  var mouseDownPos = null;
+  var didDrag = false;
+
+  canvas.addEventListener('mousedown', function (e) {
+    if (e.button === 1 || e.button === 0) {
+      isDragging = true;
+      didDrag = false;
+      dragStart = { x: e.clientX, y: e.clientY };
+      mouseDownPos = { x: e.clientX, y: e.clientY };
+      if (e.button === 1 || isPanMode || e.shiftKey) {
+        canvas.style.cursor = 'grabbing';
+      }
+      e.preventDefault();
+    }
+  });
+
+  canvas.addEventListener('mousemove', function (e) {
+    if (isDragging) {
+      var dx = e.clientX - dragStart.x;
+      var dy = e.clientY - dragStart.y;
+
+      if (!didDrag && (Math.abs(e.clientX - mouseDownPos.x) > 3 || Math.abs(e.clientY - mouseDownPos.y) > 3)) {
+        didDrag = true;
+        canvas.style.cursor = 'grabbing';
+      }
+
+      if (didDrag) {
+        camera.x -= dx / camera.zoom;
+        camera.y -= dy / camera.zoom;
+        dragStart = { x: e.clientX, y: e.clientY };
+        DrawTree();
+      }
+    } else {
+      var world = screenToWorld(e.clientX, e.clientY);
+      var nodeIndex = getNodeAtWorld(world.x, world.y);
+      if (nodeIndex && isExpanderHit(nodeIndex, world.x, world.y)) {
+        canvas.style.cursor = 'pointer';
+      } else if (nodeIndex) {
+        canvas.style.cursor = 'pointer';
+      } else {
+        canvas.style.cursor = isPanMode ? 'grab' : 'default';
+      }
+    }
+  });
+
+  canvas.addEventListener('mouseup', function (e) {
+    if (isDragging) {
+      isDragging = false;
+      canvas.style.cursor = isPanMode ? 'grab' : 'default';
+
+      if (!didDrag && e.button === 0) {
+        var world = screenToWorld(e.clientX, e.clientY);
+        var nodeIndex = getNodeAtWorld(world.x, world.y);
+        handleNodeInteraction(nodeIndex, world.x, world.y);
+      }
+    }
+  });
+
+  canvas.addEventListener('mouseleave', function () {
+    isDragging = false;
+  });
+
+  // Touch support
+  var lastTouchDist = 0;
+  var lastTouchCenter = { x: 0, y: 0 };
+  var touchDragging = false;
+  var touchStartPos = null;
+
+  canvas.addEventListener('touchstart', function (e) {
+    if (e.touches.length === 2) {
+      e.preventDefault();
+      touchDragging = false;
+      lastTouchDist = getTouchDistance(e.touches[0], e.touches[1]);
+      lastTouchCenter = getTouchCenter(e.touches[0], e.touches[1]);
+    } else if (e.touches.length === 1) {
+      touchDragging = true;
+      dragStart = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      touchStartPos = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    }
+  }, { passive: false });
+
+  canvas.addEventListener('touchmove', function (e) {
+    if (e.touches.length === 2) {
+      e.preventDefault();
+      var dist = getTouchDistance(e.touches[0], e.touches[1]);
+      var center = getTouchCenter(e.touches[0], e.touches[1]);
+
+      var scale = dist / lastTouchDist;
+      camera.zoom *= scale;
+      camera.zoom = Math.max(camera.minZoom, Math.min(camera.maxZoom, camera.zoom));
+
+      camera.x -= (center.x - lastTouchCenter.x) / camera.zoom;
+      camera.y -= (center.y - lastTouchCenter.y) / camera.zoom;
+
+      lastTouchDist = dist;
+      lastTouchCenter = center;
+      DrawTree();
+      updateZoomDisplay();
+    } else if (e.touches.length === 1 && touchDragging) {
+      var dx = e.touches[0].clientX - dragStart.x;
+      var dy = e.touches[0].clientY - dragStart.y;
+      camera.x -= dx / camera.zoom;
+      camera.y -= dy / camera.zoom;
+      dragStart = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      touchStartPos = null; // moved, not a tap
+      DrawTree();
+    }
+  }, { passive: false });
+
+  canvas.addEventListener('touchend', function (e) {
+    if (e.touches.length === 0) {
+      // Tap detection
+      if (touchStartPos && touchDragging) {
+        var world = screenToWorld(touchStartPos.x, touchStartPos.y);
+        var nodeIndex = getNodeAtWorld(world.x, world.y);
+        handleNodeInteraction(nodeIndex, world.x, world.y);
+      }
+      touchDragging = false;
+      touchStartPos = null;
+    }
+  });
+
+  // Keyboard shortcuts
+  document.addEventListener('keydown', function (e) {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+    if (e.key === '+' || e.key === '=') {
+      camera.zoom = Math.min(camera.zoom * 1.15, camera.maxZoom);
+      DrawTree(); updateZoomDisplay();
+    }
+    if (e.key === '-') {
+      camera.zoom = Math.max(camera.zoom / 1.15, camera.minZoom);
+      DrawTree(); updateZoomDisplay();
+    }
+    if (e.key === '0') {
+      fitToContent(); DrawTree(); updateZoomDisplay();
+    }
+    if (e.key === 'h' || e.key === 'H') {
+      isPanMode = !isPanMode;
+      canvas.style.cursor = isPanMode ? 'grab' : 'default';
+      var panBtn = document.getElementById('pan-btn');
+      if (panBtn) panBtn.classList.toggle('active', isPanMode);
+    }
+  });
+}
+
+// --- Separated interaction: click on expander = toggle, click on node = select ---
+function handleNodeInteraction(nodeIndex, wx, wy) {
+  if (!nodeIndex) {
+    // Clicked empty space — deselect
+    nLastClickedNodeIndex = null;
+    updateBreadcrumb(null);
+    updateSidebar(null);
+    DrawTree();
+    return;
+  }
+
+  if (isExpanderHit(nodeIndex, wx, wy)) {
+    // Toggle expand/collapse only
+    ExpandCollapseNode(nodeIndex);
+  } else {
+    // Select node — show sidebar, no expand/collapse
+    nLastClickedNodeIndex = nodeIndex;
+    updateBreadcrumb(nodeIndex);
+    updateSidebar(nodeIndex);
+    DrawTree();
+  }
+}
+
+function ExpandCollapseNode(nodeIndex) {
+  nLastExpandedNodeIndex = null;
+
+  var firstChildIndex = Nodes[nodeIndex].firstChildIndex;
+  if (!firstChildIndex) return;
+
+  if (Nodes[nodeIndex].expanded) {
+    Nodes[nodeIndex].expanded = false;
+    nLastCollapsedNodeIndex = nodeIndex;
+  } else {
+    Nodes[nodeIndex].expanded = true;
+    nLastExpandedNodeIndex = nodeIndex;
+    var nodeType = Nodes[firstChildIndex].type;
+    if ((nodeType == NodeTypeChoice || nodeType == NodeTypeSequence) && Nodes[firstChildIndex].firstChildIndex) {
+      Nodes[firstChildIndex].expanded = true;
+      nLastExpandedNodeIndex = firstChildIndex;
+    }
+    ExpandChoiceNodes(nLastExpandedNodeIndex);
+  }
+
+  CalcNodePositions();
+  DrawTree();
+}
+
+function getNodeAtWorld(wx, wy) {
+  for (var i = Nodes.length - 1; i >= 0; i--) {
+    var n = Nodes[i];
+    if (n.left !== undefined && n.visible !== false) {
+      // Include expander area in hit box
+      var extraRight = n.firstChildIndex ? (nExpanderSize + nExpanderDistance) : nExpanderHalfSize;
+      if (wx >= n.left && wx <= n.right + extraRight &&
+          wy >= n.top - 2 && wy <= n.bottom + 2)
+        return i;
+    }
+  }
+  return null;
+}
+
+function getTouchDistance(t1, t2) {
+  var dx = t1.clientX - t2.clientX;
+  var dy = t1.clientY - t2.clientY;
+  return Math.sqrt(dx * dx + dy * dy);
+}
+
+function getTouchCenter(t1, t2) {
+  return {
+    x: (t1.clientX + t2.clientX) / 2,
+    y: (t1.clientY + t2.clientY) / 2
+  };
+}
+
+function updateZoomDisplay() {
+  var el = document.getElementById('zoom-level');
+  if (el) el.textContent = Math.round(camera.zoom * 100) + '%';
+}
+
+function MoveNodeToCenter(nodeIndex) {
+  if (!Nodes[nodeIndex]) return;
+  camera.x = Nodes[nodeIndex].left + Nodes[nodeIndex].width / 2;
+  camera.y = Nodes[nodeIndex].verCenter;
+}
+
+function resetView() {
+  if (!rootNodeIndex) return;
+  SetAllNodesCollapsed(rootNodeIndex);
+  Nodes[rootNodeIndex].expanded = true;
+  SetNodesExpanded(rootNodeIndex, true, 2);
+  CalcNodePositions();
+
+  // Zoom 1.0, positioned so root is near left side of viewport
+  camera.zoom = 1.0;
+  var rn = Nodes[rootNodeIndex];
+  var dpr = window.devicePixelRatio || 1;
+  var viewW = canvas.width / dpr;
+  // Place root ~20% from left edge
+  camera.x = rn.left + viewW * 0.3;
+  camera.y = rn.verCenter;
+}
+
+
+// ===== js/search.js =====
+// ===== SEARCH =====
+
+function SearchSubTree(nodeIndex) {
+  var matching = false;
+
+  if (IsRealNode(Nodes[nodeIndex].type)) {
+    var nodeName = Nodes[nodeIndex].name;
+    if (nodeName && nodeName.toLowerCase().search(lastSearchText) >= 0)
+      matching = true;
+  }
+
+  var annotation = Nodes[nodeIndex].annotation;
+  if (!matching && annotation)
+    if (annotation.toLowerCase().search(lastSearchText) >= 0)
+      matching = true;
+
+  if (matching) {
+    if (SearchResults.length >= nMaxSearchResults)
+      bTooManySearchResults = true;
+    else
+      SearchResults.push(nodeIndex);
+  }
+
+  var nextNodeIndex = Nodes[nodeIndex].firstChildIndex;
+  while (nextNodeIndex && !bTooManySearchResults) {
+    SearchSubTree(nextNodeIndex);
+    nextNodeIndex = Nodes[nextNodeIndex].nextIndex;
+  }
+}
+
+function SearchButtonPressed() {
+  var searchText = document.getElementById('SearchText');
+  var searchResultDiv = document.getElementById('SearchResultDiv');
+  var searchResetButton = document.getElementById('SearchReset');
+  var tooManyResults = document.getElementById('TooManyResults');
+  var searchResultElement;
+  var nodeIndex, i;
+  var bDisplayResultTable = false;
+
+  lastSearchText = searchText.value.trim().toLowerCase();
+
+  SearchResults = [];
+  bTooManySearchResults = false;
+  searchResultDiv.scrollTop = 0;
+
+  // Generate search result rows dynamically
+  var searchTable = searchResultDiv.querySelector('table');
+  searchTable.innerHTML = '';
+
+  if (lastSearchText.length > 2) {
+    SearchSubTree(rootNodeIndex);
+    bDisplayResultTable = true;
+    searchResetButton.removeAttribute("hidden");
+  } else {
+    errorToUser("You can only search for words 3 characters or longer");
+  }
+
+  for (i = 0; i < SearchResults.length; i++) {
+    var tr = document.createElement('tr');
+    tr.className = 'search-result';
+    tr.setAttribute('data-index', i);
+    tr.onclick = (function(idx) { return function() { SearchResultClicked(idx); }; })(i);
+    var td = document.createElement('td');
+    td.className = 'xpath btn btn-link float-start';
+    nodeIndex = SearchResults[i];
+    td.textContent = XPath(nodeIndex).replace(/\//g, ' / ');
+    tr.appendChild(td);
+    searchTable.appendChild(tr);
+  }
+
+  if (bTooManySearchResults) {
+    var trTooMany = document.createElement('tr');
+    trTooMany.className = 'search-result';
+    var tdTooMany = document.createElement('td');
+    tdTooMany.className = 'xpath';
+    tdTooMany.textContent = 'Too many results found';
+    trTooMany.appendChild(tdTooMany);
+    searchTable.appendChild(trTooMany);
+  }
+
+  if (bDisplayResultTable) {
+    if (SearchResults.length == 0) {
+      var trNone = document.createElement('tr');
+      trNone.className = 'search-result';
+      var tdNone = document.createElement('td');
+      tdNone.className = 'xpath btn btn-link float-start';
+      tdNone.textContent = 'No results found for this search text ...';
+      trNone.appendChild(tdNone);
+      searchTable.appendChild(trNone);
+    }
+    searchResultDiv.removeAttribute("hidden");
+  } else {
+    searchResultDiv.setAttribute("hidden", "");
+  }
+
+  DrawTree();
+}
+
+function SetAllNodesCollapsed(nodeIndex) {
+  Nodes[nodeIndex].expanded = false;
+  var nextNodeIndex = Nodes[nodeIndex].firstChildIndex;
+  while (nextNodeIndex) {
+    SetAllNodesCollapsed(nextNodeIndex);
+    nextNodeIndex = Nodes[nextNodeIndex].nextIndex;
+  }
+}
+
+function SetPathExpanded(nodeIndex) {
+  if (Nodes[nodeIndex].firstChildIndex)
+    Nodes[nodeIndex].expanded = true;
+  var parentIndex = Nodes[nodeIndex].parentIndex;
+  if (parentIndex)
+    SetPathExpanded(parentIndex);
+}
+
+function SearchResultClicked(index) {
+  if (index >= 0 && index < SearchResults.length) {
+    var nodeIndex = SearchResults[index];
+    SetAllNodesCollapsed(rootNodeIndex);
+    SetPathExpanded(nodeIndex);
+    SetVerNodePositions();
+    MoveNodeToCenter(nodeIndex);
+    if (Nodes[nodeIndex].firstChildIndex)
+      Nodes[nodeIndex].expanded = false;
+    SetVerNodePositions();
+    NodeClicked(nodeIndex, false);
+  }
+}
+
+function SearchResetPressed() {
+  document.getElementById('SearchText').value = '';
+  SearchResults = [];
+  document.getElementById('SearchResultDiv').setAttribute("hidden", "");
+  document.getElementById('SearchReset').setAttribute("hidden", "");
+  DrawTree();
+}
+
+
+// ===== js/ui.js =====
+// ===== UI FUNCTIONS =====
+
+function updateXsdType(type) {
+  if (type == 'xs') {
+    xsdType = "xs";
+    document.getElementById("custom_xsdType").disabled = true;
+    document.getElementById("radio_xs").checked = true;
+  } else if (type == 'xsd') {
+    xsdType = "xsd";
+    document.getElementById("custom_xsdType").disabled = true;
+    document.getElementById("radio_xsd").checked = true;
+  } else if (type == 'custom') {
+    var inputField = document.getElementById("custom_xsdType");
+    inputField.disabled = false;
+    document.getElementById("radio_custom").checked = true;
+    xsdType = inputField.value;
+  }
+}
+
+function changeMode(mode) {
+  if (mode == "text") {
+    document.getElementById("option_textarea").removeAttribute("hidden");
+    document.getElementById("option_url").setAttribute("hidden", "");
+  } else if (mode == "url") {
+    document.getElementById("option_url").removeAttribute("hidden");
+    document.getElementById("option_textarea").setAttribute("hidden", "");
+  }
+}
+
+async function fetchURL(url, save) {
+  // Auto-add https:// if missing
+  if (url && !url.match(/^https?:\/\//i)) {
+    url = 'https://' + url;
+    document.getElementById('inputURL').value = url;
+  }
+
+  var response;
+  try {
+    response = await fetch(url);
+    if (!response.ok) {
+      errorToUser('Something went wrong: HTTP ' + response.status);
+      return;
+    }
+  } catch (err) {
+    errorToUser("Something went wrong: Can't reach the content. If running locally (file://), try using a local server instead.");
+    console.log(err);
+    return;
+  }
+
+  var data = await response.text();
+  var parser = new DOMParser();
+  var xmlDoc = parser.parseFromString(data, "text/xml");
+
+  if (xmlDoc.getElementsByTagName("parsererror").length > 0) {
+    errorToUser('Something went wrong: This is not an XML file');
+    return;
+  }
+
+  if (save === true) {
+    var URLname = document.getElementById("saveURL_name").value;
+
+    if (URLname.length < 5) {
+      errorToUser("Name is too short, please give the URL a longer name. (min 5 characters)");
+      return;
+    }
+
+    savedURLs = JSON.parse(localStorage.getItem("savedURLs")) || {};
+
+    if (savedURLs[URLname]) {
+      errorToUser("Name is already taken. Change name or delete existing url with this name.");
+      return;
+    }
+    for (var key in savedURLs) {
+      if (savedURLs[key].url == url) {
+        errorToUser("This URL is already saved under name " + key + ".");
+        return;
+      }
+    }
+
+    savedURLs[URLname] = { "url": url, "type": xsdType, "customtype": document.getElementById("custom_xsdType").value };
+    localStorage.setItem("savedURLs", JSON.stringify(savedURLs));
+    updateDropdown(savedURLs);
+    return;
+  }
+
+  LoadSchema(data);
+}
+
+function updateDropdown(urls) {
+  // Render saved URLs as clickable list items
+  var container = document.getElementById('savedUrlList');
+  if (!container) return;
+  container.innerHTML = '';
+
+  var keys = Object.keys(urls);
+  if (keys.length < 1) {
+    container.innerHTML = '<div class="saved-empty">No saved schemas yet</div>';
+    return;
+  }
+
+  for (var i = 0; i < keys.length; i++) {
+    var key = keys[i];
+    var entry = urls[key];
+    var item = document.createElement('div');
+    item.className = 'saved-item';
+    item.innerHTML = '<div class="saved-item-main" onclick="quickLoad(\'' + key.replace(/'/g, "\\'") + '\')">' +
+      '<span class="saved-item-name">' + key + '</span>' +
+      '<span class="saved-item-badge">' + entry.type + ':</span>' +
+      '</div>' +
+      '<button class="saved-item-del" title="Delete" onclick="deleteBtn(\'' + key.replace(/'/g, "\\'") + '\')" data-bs-toggle="modal" data-bs-target="#exampleModal"><i class="bi bi-x-lg"></i></button>';
+    container.appendChild(item);
+  }
+}
+
+function quickLoad(key) {
+  if (!savedURLs[key]) return;
+  var entry = savedURLs[key];
+  // Set type first
+  updateXsdType(entry.type);
+  if (entry.type == 'custom') {
+    document.getElementById("custom_xsdType").value = entry.customtype;
+    xsdType = entry.customtype;
+  }
+  // Set URL field and fetch
+  document.getElementById('inputURL').value = entry.url;
+  document.getElementById('saveURL_name').value = key;
+  fetchURL(entry.url);
+}
+
+function loadURL(url) {
+  // Legacy compat — redirect to quickLoad
+  quickLoad(url);
+}
+
+function deleteBtn(url) {
+  updateModal("Delete URL?", "Do you want to delete this url from local storage?", url, "Avbryt", "Bekreft");
+}
+
+function deleteURL(url) {
+  delete savedURLs[url];
+  localStorage.setItem("savedURLs", JSON.stringify(savedURLs));
+  updateDropdown(savedURLs);
+}
+
+function updateModal(label, body, callFunction, btnCancel, btnExecute) {
+  document.getElementById("modalLabel").innerHTML = label;
+  document.getElementById("modalBody").innerHTML = body;
+  document.getElementById("modalBtnCancel").innerHTML = btnCancel || "Cancel";
+  document.getElementById("modalBtnExecute").innerHTML = btnExecute || "Confirm";
+  document.getElementById("modalBtnExecute").onclick = function () { deleteURL(callFunction); };
+}
+
+async function errorToUser(error) {
+  var errorElement = document.getElementById("errorToUser");
+  errorElement.innerHTML = '<i class="bi bi-exclamation-triangle-fill"></i>    ' + error;
+  errorElement.removeAttribute("hidden");
+  await new Promise(function (res) { setTimeout(res, 8000); });
+  errorElement.setAttribute("hidden", "");
+}
+
+
+// ===== js/savedUrls.js =====
+// ===== DEFAULT SAVED URLS =====
+
+function getDefaultSavedURLs() {
+  var urls = {};
+
+  // Næringsspesifikasjon og skattemelding
+  urls["Næringsspesifikasjon v6"] = {
+    "url": "https://raw.githubusercontent.com/Skatteetaten/skattemeldingen/refs/heads/master/src/resources/xsd/naeringsspesifikasjon_v6_ekstern.xsd",
+    "type": "xsd", "customtype": ""
+  };
+  urls["Skattemelding Upersonlig v5"] = {
+    "url": "https://raw.githubusercontent.com/Skatteetaten/skattemeldingen/refs/heads/master/src/resources/xsd/skattemeldingUpersonlig_v5_ekstern.xsd",
+    "type": "xsd", "customtype": ""
+  };
+  urls["Skattemelding (personlig) v13"] = {
+    "url": "https://raw.githubusercontent.com/Skatteetaten/skattemeldingen/refs/heads/master/src/resources/xsd/skattemelding_v13_ekstern.xsd",
+    "type": "xsd", "customtype": ""
+  };
+  urls["Selskapsmelding med deltakerfastsetting v4"] = {
+    "url": "https://raw.githubusercontent.com/Skatteetaten/skattemeldingen/refs/heads/master/src/resources/xsd/selskapsmeldingSelskapMedDeltakerfastsetting_v4_ekstern.xsd",
+    "type": "xsd", "customtype": ""
+  };
+
+  // Kompakt
+  /*
+  urls["Næringsspesifikasjon v6 - kompakt"] = {
+    "url": "https://raw.githubusercontent.com/Skatteetaten/skattemeldingen/refs/heads/master/src/resources/xsd/naeringsspesifikasjon_v6_kompakt_ekstern.xsd",
+    "type": "xsd", "customtype": ""
+  };
+  urls["Skattemelding Upersonlig v5 - kompakt"] = {
+    "url": "https://raw.githubusercontent.com/Skatteetaten/skattemeldingen/refs/heads/master/src/resources/xsd/skattemeldingUpersonlig_v5_kompakt_ekstern.xsd",
+    "type": "xsd", "customtype": ""
+  };
+  urls["Skattemelding (personlig) v13 - kompakt"] = {
+    "url": "https://raw.githubusercontent.com/Skatteetaten/skattemeldingen/refs/heads/master/src/resources/xsd/skattemelding_v13_kompakt_ekstern.xsd",
+    "type": "xsd", "customtype": ""
+  };
+  urls["Selskapsmelding med deltakerfastsetting v4 - kompakt"] = {
+    "url": "https://raw.githubusercontent.com/Skatteetaten/skattemeldingen/refs/heads/master/src/resources/xsd/selskapsmeldingSelskapMedDeltakerfastsetting_v4_kompakt_ekstern.xsd",
+    "type": "xsd", "customtype": ""
+  };
+  */
+
+  // SAF-T
+  urls["SAF-T Financial Skatteetaten"] = {
+    "url": "https://raw.githubusercontent.com/Skatteetaten/saf-t/master/Norwegian_SAF-T_Financial_Schema_v_1.10.xsd",
+    "type": "xs", "customtype": ""
+  };
+  urls["SAF-T Cash Register Skatteetaten"] = {
+    "url": "https://raw.githubusercontent.com/Skatteetaten/saf-t/master/Norwegian_SAF-T_Cash_Register_Schema_v_1.00.xsd",
+    "type": "xsd", "customtype": ""
+  };
+
+  return urls;
+}
+
+
+// ===== js/sample.js =====
+// ===== SAMPLE SCHEMA =====
+
+function SampleSchema() {
+  updateXsdType('xs');
+  document.getElementById('radio_xs').checked = true;
+  var textarea = document.getElementById("schema-text");
+  textarea.value = ''
++ '<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified" attributeFormDefault="unqualified">\n'
++ '  <xs:element name="Library">\n'
++ '    <xs:annotation>\n'
++ '      <xs:documentation>Root node</xs:documentation>\n'
++ '    </xs:annotation>\n'
++ '      <xs:complexType>\n'
++ '        <xs:sequence>\n'
++ '          <xs:element name="Name">\n'
++ '            <xs:annotation>\n'
++ '              <xs:documentation>Name of library</xs:documentation>\n'
++ '            </xs:annotation>\n'
++ '            <xs:simpleType>\n'
++ '            <xs:restriction base="xs:string">\n'
++ '              <xs:minLength value="1"/>\n'
++ '              <xs:maxLength value="256"/>\n'
++ '            </xs:restriction>\n'
++ '          </xs:simpleType>\n'
++ '        </xs:element>\n'
++ '        <xs:element name="Address" type="AddressType">\n'
++ '          <xs:annotation>\n'
++ '            <xs:documentation>Address details of library like city name, ZIP code, street name and phone number</xs:documentation>\n'
++ '          </xs:annotation>\n'
++ '        </xs:element>\n'
++ '        <xs:element name="OpeningHours" minOccurs="0">\n'
++ '          <xs:annotation>\n'
++ '            <xs:documentation>Opening hours of library</xs:documentation>\n'
++ '          </xs:annotation>\n'
++ '          <xs:complexType>\n'
++ '            <xs:sequence>\n'
++ '              <xs:element name="Monday" type="OpenTimeType" minOccurs="0"/>\n'
++ '              <xs:element name="Tuesday" type="OpenTimeType" minOccurs="0"/>\n'
++ '              <xs:element name="Wednesday" type="OpenTimeType" minOccurs="0"/>\n'
++ '              <xs:element name="Thursday" type="OpenTimeType" minOccurs="0"/>\n'
++ '              <xs:element name="Friday" type="OpenTimeType" minOccurs="0"/>\n'
++ '              <xs:element name="Saturday" type="OpenTimeType" minOccurs="0"/>\n'
++ '              <xs:element name="Sunday" type="OpenTimeType" minOccurs="0"/>\n'
++ '            </xs:sequence>\n'
++ '          </xs:complexType>\n'
++ '        </xs:element>\n'
++ '        <xs:element name="ExistingSince" type="xs:date" minOccurs="0">\n'
++ '          <xs:annotation>\n'
++ '            <xs:documentation>Library existing since</xs:documentation>\n'
++ '          </xs:annotation>\n'
++ '        </xs:element>\n'
++ '        <xs:element name="Book" type="BookType" maxOccurs="unbounded">\n'
++ '          <xs:annotation>\n'
++ '            <xs:documentation>List of books available at library</xs:documentation>\n'
++ '          </xs:annotation>\n'
++ '        </xs:element>\n'
++ '        <xs:element name="CreationDate" type="xs:date">\n'
++ '          <xs:annotation>\n'
++ '            <xs:documentation>Creation date of this data set</xs:documentation>\n'
++ '          </xs:annotation>\n'
++ '        </xs:element>\n'
++ '      </xs:sequence>\n'
++ '    </xs:complexType>\n'
++ '  </xs:element>\n'
++ '  <xs:complexType name="OpenTimeType">\n'
++ '    <xs:sequence>\n'
++ '      <xs:element name="From" type="xs:time"/>\n'
++ '      <xs:element name="To" type="xs:time"/>\n'
++ '    </xs:sequence>\n'
++ '  </xs:complexType>\n'
++ '  <xs:complexType name="BookType">\n'
++ '    <xs:sequence>\n'
++ '      <xs:element name="Author"><xs:simpleType><xs:restriction base="xs:string"><xs:maxLength value="256"/></xs:restriction></xs:simpleType></xs:element>\n'
++ '      <xs:element name="Publisher"><xs:simpleType><xs:restriction base="xs:string"><xs:maxLength value="256"/></xs:restriction></xs:simpleType></xs:element>\n'
++ '      <xs:element name="Published" type="xs:date" minOccurs="0"/>\n'
++ '      <xs:element name="Language" type="xs:language"/>\n'
++ '      <xs:element name="Titel"><xs:simpleType><xs:restriction base="xs:string"><xs:maxLength value="256"/></xs:restriction></xs:simpleType></xs:element>\n'
++ '      <xs:element name="Subtitle" minOccurs="0"><xs:simpleType><xs:restriction base="xs:string"><xs:maxLength value="256"/></xs:restriction></xs:simpleType></xs:element>\n'
++ '      <xs:element name="ISBN" minOccurs="0"><xs:simpleType><xs:restriction base="xs:string"><xs:maxLength value="32"/></xs:restriction></xs:simpleType></xs:element>\n'
++ '      <xs:element name="Pages" type="xs:positiveInteger" minOccurs="0"/>\n'
++ '    </xs:sequence>\n'
++ '  </xs:complexType>\n'
++ '  <xs:complexType name="AddressType">\n'
++ '    <xs:sequence>\n'
++ '      <xs:element name="Country" minOccurs="0"><xs:annotation><xs:documentation>Country of library</xs:documentation></xs:annotation><xs:simpleType><xs:restriction base="xs:string"><xs:maxLength value="256"/></xs:restriction></xs:simpleType></xs:element>\n'
++ '      <xs:element name="CityName" minOccurs="0"><xs:annotation><xs:documentation>City name of library address</xs:documentation></xs:annotation><xs:simpleType><xs:restriction base="xs:string"><xs:maxLength value="256"/></xs:restriction></xs:simpleType></xs:element>\n'
++ '      <xs:element name="ZIP" type="xs:positiveInteger" minOccurs="0"><xs:annotation><xs:documentation>ZIP code of library address</xs:documentation></xs:annotation></xs:element>\n'
++ '      <xs:element name="Street" minOccurs="0"><xs:annotation><xs:documentation>Street of library address</xs:documentation></xs:annotation><xs:simpleType><xs:restriction base="xs:string"><xs:maxLength value="256"/></xs:restriction></xs:simpleType></xs:element>\n'
++ '      <xs:element name="Phone" minOccurs="0"><xs:annotation><xs:documentation>Phone number of library</xs:documentation></xs:annotation><xs:simpleType><xs:restriction base="xs:string"><xs:maxLength value="128"/></xs:restriction></xs:simpleType></xs:element>\n'
++ '      <xs:element name="Homepage" minOccurs="0"><xs:annotation><xs:documentation>Homepage of library (URL)</xs:documentation></xs:annotation><xs:simpleType><xs:restriction base="xs:string"><xs:maxLength value="256"/></xs:restriction></xs:simpleType></xs:element>\n'
++ '    </xs:sequence>\n'
++ '  </xs:complexType>\n'
++ '</xs:schema>';
+}
+
+
+// ===== js/main.js =====
+// ===== MAIN INITIALIZATION =====
+
+var canvas;
+var canvasContainer;
+
+var nodeDetails;
+var NodeDetailsName;
+var NodeDetailsAttr;
+var NodeDetailsType;
+var NodeDetailsPattern;
+var NodeDetailsAnno;
+var NodeDetailsEnum;
+var NodeDetailsXPath;
+
+function initApp() {
+  canvas = document.getElementById("tree");
+  canvasContainer = document.getElementById("canvas-container");
+
+  resizeCanvasToContainer();
+
+  document.getElementById('SearchReset').setAttribute("hidden", "");
+
+  nodeDetails = document.getElementById('node-details');
+  NodeDetailsName = document.getElementById("nd-name");
+  NodeDetailsAttr = document.getElementById("nd-attr");
+  NodeDetailsType = document.getElementById("nd-type");
+  NodeDetailsPattern = document.getElementById("nd-pattern");
+  NodeDetailsAnno = document.getElementById("nd-anno");
+  NodeDetailsEnum = document.getElementById("nd-enum");
+  NodeDetailsXPath = document.getElementById("nd-xpath");
+
+  // Setup camera (zoom/pan)
+  setupCameraEvents();
+
+  // Search enter key
+  document.getElementById('SearchText').addEventListener("keyup", function (event) {
+    event.preventDefault();
+    if (event.keyCode == 13) SearchButtonPressed();
+  });
+
+  // Load saved URLs
+  savedURLs = JSON.parse(localStorage.getItem("savedURLs")) || {};
+  if (Object.keys(savedURLs).length < 2) {
+    savedURLs = getDefaultSavedURLs();
+    localStorage.setItem("savedURLs", JSON.stringify(savedURLs));
+  }
+  updateDropdown(savedURLs);
+
+  // Resize handler
+  window.addEventListener('resize', function () {
+    resizeCanvasToContainer();
+    if (rootNodeIndex) DrawTree();
+  });
+
+  // Pan mode button
+  var panBtn = document.getElementById('pan-btn');
+  if (panBtn) {
+    panBtn.addEventListener('click', function () {
+      isPanMode = !isPanMode;
+      panBtn.classList.toggle('active', isPanMode);
+      canvas.style.cursor = isPanMode ? 'grab' : 'default';
+    });
+  }
+
+  // Fit to content button
+  var fitBtn = document.getElementById('fit-btn');
+  if (fitBtn) {
+    fitBtn.addEventListener('click', function () {
+      fitToContent();
+      DrawTree();
+      updateZoomDisplay();
+    });
+  }
+
+  // Zoom buttons
+  var zoomInBtn = document.getElementById('zoom-in-btn');
+  if (zoomInBtn) {
+    zoomInBtn.addEventListener('click', function () {
+      camera.zoom = Math.min(camera.zoom * 1.2, camera.maxZoom);
+      DrawTree();
+      updateZoomDisplay();
+    });
+  }
+  var zoomOutBtn = document.getElementById('zoom-out-btn');
+  if (zoomOutBtn) {
+    zoomOutBtn.addEventListener('click', function () {
+      camera.zoom = Math.max(camera.zoom / 1.2, camera.minZoom);
+      DrawTree();
+      updateZoomDisplay();
+    });
+  }
+
+  // Expand/Collapse all
+  var expandBtn = document.getElementById('expand-all-btn');
+  if (expandBtn) {
+    expandBtn.addEventListener('click', function () {
+      if (rootNodeIndex) {
+        SetNodesExpanded(rootNodeIndex, true, 99);
+        CalcNodePositions();
+        DrawTree();
+      }
+    });
+  }
+  var collapseBtn = document.getElementById('collapse-all-btn');
+  if (collapseBtn) {
+    collapseBtn.addEventListener('click', function () {
+      if (rootNodeIndex) {
+        SetAllNodesCollapsed(rootNodeIndex);
+        Nodes[rootNodeIndex].expanded = true;
+        CalcNodePositions();
+        DrawTree();
+      }
+    });
+  }
+
+  // Reset view
+  var resetBtn = document.getElementById('reset-view-btn');
+  if (resetBtn) {
+    resetBtn.addEventListener('click', function () {
+      if (rootNodeIndex) {
+        resetView();
+        updateZoomDisplay();
+        DrawTree();
+      }
+    });
+  }
+
+  // Dark mode
+  var darkBtn = document.getElementById('dark-mode-btn');
+  if (darkBtn) {
+    var isDark = localStorage.getItem('schemaviewer_darkmode') === 'true';
+    if (isDark) document.body.classList.add('dark-mode');
+    darkBtn.addEventListener('click', function () {
+      document.body.classList.toggle('dark-mode');
+      var active = document.body.classList.contains('dark-mode');
+      localStorage.setItem('schemaviewer_darkmode', active);
+      if (rootNodeIndex) DrawTree();
+    });
+  }
+
+  // Help overlay
+  var helpBtn = document.getElementById('help-btn');
+  var helpOverlay = document.getElementById('help-overlay');
+  if (helpBtn && helpOverlay) {
+    helpBtn.addEventListener('click', function () {
+      helpOverlay.hidden = !helpOverlay.hidden;
+    });
+    helpOverlay.addEventListener('click', function (e) {
+      if (e.target === helpOverlay) helpOverlay.hidden = true;
+    });
+  }
+}
+
+// ===== CHECKBOX HANDLERS =====
+
+function AnnotationChanged() {
+  bShowAnnotations = document.getElementById("cbAnnotations").checked;
+  CalcNodePositions();
+  DrawTree();
+}
+
+function TypeInfoChanged() {
+  bShowTypeInfo = document.getElementById("cbTypeInfo").checked;
+  CalcNodePositions();
+  DrawTree();
+}
+
+// ===== BREADCRUMB =====
+
+function updateBreadcrumb(nodeIndex) {
+  var el = document.getElementById('breadcrumb');
+  if (!el) return;
+
+  if (!nodeIndex) {
+    el.innerHTML = '';
+    return;
+  }
+
+  var path = [];
+  var idx = nodeIndex;
+  while (idx != null) {
+    if (IsRealNode(Nodes[idx].type) && Nodes[idx].name) {
+      path.unshift(idx);
+    }
+    idx = Nodes[idx].parentIndex;
+  }
+
+  var html = '';
+  for (var i = 0; i < path.length; i++) {
+    if (i > 0) html += ' <span class="breadcrumb-sep">/</span> ';
+    var cls = (i === path.length - 1) ? 'breadcrumb-item active' : 'breadcrumb-item';
+    html += '<span class="' + cls + '" data-node="' + path[i] + '" onclick="breadcrumbClick(' + path[i] + ')">' + Nodes[path[i]].name + '</span>';
+  }
+  el.innerHTML = html;
+}
+
+function breadcrumbClick(nodeIndex) {
+  if (nodeIndex && Nodes[nodeIndex]) {
+    nLastClickedNodeIndex = nodeIndex;
+    // Navigate camera to node
+    camera.x = Nodes[nodeIndex].left + Nodes[nodeIndex].width / 2;
+    camera.y = Nodes[nodeIndex].verCenter;
+    updateBreadcrumb(nodeIndex);
+    updateSidebar(nodeIndex);
+    DrawTree();
+  }
+}
+
+// ===== SIDEBAR NODE DETAILS =====
+
+function getExampleValue(node) {
+  var base = node.baseTypeName || node.typeName || '';
+  if (base.indexOf(':string') >= 0) return 'text';
+  if (base.indexOf(':int') >= 0 || base.indexOf(':integer') >= 0 || base.indexOf(':nonNegativeInteger') >= 0) return '1';
+  if (base.indexOf(':decimal') >= 0) return '100.00';
+  if (base.indexOf(':boolean') >= 0) return 'true';
+  if (base.indexOf(':date') >= 0 && base.indexOf(':dateTime') < 0) return '2025-01-15';
+  if (base.indexOf(':dateTime') >= 0) return '2025-01-15T10:30:00';
+  if (base.indexOf(':time') >= 0) return '10:30:00';
+  if (base.indexOf(':anyURI') >= 0) return 'https://example.com';
+  if (node.enumeration && node.enumeration.length > 0) return node.enumeration[0];
+  if (node.pattern) return node.pattern;
+  return '...';
+}
+
+function getParentElements(nodeIndex, maxParents) {
+  var parents = [];
+  var idx = nodeIndex;
+  while (idx && parents.length < maxParents) {
+    var parentIdx = Nodes[idx].parentIndex;
+    if (parentIdx && Nodes[parentIdx]) {
+      if (IsRealNode(Nodes[parentIdx].type)) {
+        parents.unshift(Nodes[parentIdx].name);
+      }
+      idx = parentIdx;
+    } else {
+      break;
+    }
+  }
+  return parents;
+}
+
+function generateXmlExample(nodeIndex) {
+  var node = Nodes[nodeIndex];
+  if (!node || !node.name) return '';
+
+  var parents = getParentElements(nodeIndex, 2);
+  var indent = '';
+  var lines = [];
+
+  // Opening parent tags
+  for (var p = 0; p < parents.length; p++) {
+    lines.push(indent + '<' + parents[p] + '>');
+    indent += '  ';
+  }
+
+  // The node itself
+  var hasChildren = node.firstChildIndex && node.type == NodeTypeComplex;
+
+  if (hasChildren) {
+    lines.push(indent + '<' + node.name + '>');
+    // Show a few child elements as hints
+    var childIdx = node.firstChildIndex;
+    var childIndent = indent + '  ';
+    var childCount = 0;
+    while (childIdx && childCount < 3) {
+      var child = Nodes[childIdx];
+      if (IsRealNode(child.type) && child.name) {
+        var childHasChildren = child.firstChildIndex && child.type == NodeTypeComplex;
+        if (childHasChildren) {
+          lines.push(childIndent + '<' + child.name + '>\u2026</' + child.name + '>');
+        } else {
+          lines.push(childIndent + '<' + child.name + '>' + getExampleValue(child) + '</' + child.name + '>');
+        }
+        childCount++;
+      } else if (!IsRealNode(child.type)) {
+        // Structural node — peek into its children
+        var grandIdx = child.firstChildIndex;
+        while (grandIdx && childCount < 3) {
+          var grand = Nodes[grandIdx];
+          if (IsRealNode(grand.type) && grand.name) {
+            var grandHasChildren = grand.firstChildIndex && grand.type == NodeTypeComplex;
+            if (grandHasChildren) {
+              lines.push(childIndent + '<' + grand.name + '>\u2026</' + grand.name + '>');
+            } else {
+              lines.push(childIndent + '<' + grand.name + '>' + getExampleValue(grand) + '</' + grand.name + '>');
+            }
+            childCount++;
+          }
+          grandIdx = grand.nextIndex;
+        }
+      }
+      childIdx = child.nextIndex;
+    }
+    // Check if there are more children
+    if (childIdx) {
+      lines.push(childIndent + '\u2026');
+    }
+    lines.push(indent + '</' + node.name + '>');
+  } else {
+    lines.push(indent + '<' + node.name + '>' + getExampleValue(node) + '</' + node.name + '>');
+  }
+
+  // Closing parent tags
+  for (var p = parents.length - 1; p >= 0; p--) {
+    indent = '';
+    for (var s = 0; s < p; s++) indent += '  ';
+    lines.push(indent + '</' + parents[p] + '>');
+  }
+
+  return lines.join('\n');
+}
+
+function updateSidebar(nodeIndex) {
+  var sidebar = document.getElementById('detail-sidebar');
+  if (!sidebar) return;
+
+  if (!nodeIndex || !Nodes[nodeIndex]) {
+    sidebar.classList.remove('open');
+    return;
+  }
+
+  var node = Nodes[nodeIndex];
+  var nodeType = node.type;
+
+  // Structural nodes (sequence, choice, all) get a simplified sidebar
+  if (!IsRealNode(nodeType)) {
+    sidebar.classList.add('open');
+
+    var structName = '';
+    var structDesc = '';
+    if (nodeType == NodeTypeSequence) {
+      structName = 'Sequence';
+      structDesc = 'Child elements must appear in the exact order shown. All children in this group are expected in sequence.';
+    } else if (nodeType == NodeTypeChoice) {
+      structName = 'Choice';
+      structDesc = 'Exactly one of the child elements must be present. Only one option from this group can be used.';
+    } else if (nodeType == NodeTypeAll) {
+      structName = 'All';
+      structDesc = 'All child elements may appear in any order, but each at most once.';
+    }
+
+    document.getElementById('sb-name').textContent = structName;
+    document.getElementById('sb-xpath').textContent = '';
+
+    // Occurrences on the structural node itself
+    var occEl = document.getElementById('sb-occ');
+    var occRow = document.getElementById('sb-occ-row');
+    if (node.minOccurs !== undefined) {
+      var maxStr = (node.maxOccurs < 0) ? 'unbounded' : node.maxOccurs;
+      occEl.textContent = node.minOccurs + '..' + maxStr;
+      occRow.style.display = '';
+    } else {
+      occRow.style.display = 'none';
+    }
+
+    document.getElementById('sb-type-row').style.display = 'none';
+    document.getElementById('sb-pattern-row').style.display = 'none';
+    document.getElementById('sb-attr-row').style.display = 'none';
+    document.getElementById('sb-enum-row').style.display = 'none';
+    document.getElementById('sb-digits-row').style.display = 'none';
+    document.getElementById('sb-range-row').style.display = 'none';
+    document.getElementById('sb-keys-row').style.display = 'none';
+    document.getElementById('sb-keyrefs-row').style.display = 'none';
+
+    // Show annotation if present, otherwise show the structural description
+    var annoText = '';
+    if (node.annotationLines) annoText = node.annotationLines.join('\n');
+    else if (node.annotation) annoText = node.annotation;
+    if (!annoText) annoText = structDesc;
+    document.getElementById('sb-anno').textContent = annoText;
+    document.getElementById('sb-anno-row').style.display = '';
+
+    // Hide example for structural nodes
+    document.getElementById('sb-example-row').style.display = 'none';
+
+    return;
+  }
+
+  sidebar.classList.add('open');
+
+  document.getElementById('sb-name').textContent = node.name || '';
+  document.getElementById('sb-xpath').textContent = XPath(nodeIndex);
+
+  // Type
+  document.getElementById('sb-type').textContent = node.typeDescription || '';
+  document.getElementById('sb-type-row').style.display = node.typeDescription ? '' : 'none';
+
+  // Pattern
+  document.getElementById('sb-pattern').textContent = node.pattern || '';
+  document.getElementById('sb-pattern-row').style.display = node.pattern ? '' : 'none';
+
+  // Annotation
+  var annoText = '';
+  if (node.annotationLines) annoText = node.annotationLines.join('\n');
+  else if (node.annotation) annoText = node.annotation;
+
+  // Add note for recursive types and anyType (shown as "..." dots in the tree)
+  if (node.recursiveType) {
+    var recursiveNote = 'This element references its own type (' + node.typeName + ') higher in the tree, creating a recursive structure. Shown as \u2026 in the diagram.';
+    annoText = annoText ? annoText + '\n\n' + recursiveNote : recursiveNote;
+  } else if (node.typeName == xsdType + ':anyType' || node.baseTypeName == xsdType + ':anyType') {
+    var anyNote = 'This element accepts any content (anyType). Shown as \u2026 in the diagram.';
+    annoText = annoText ? annoText + '\n\n' + anyNote : anyNote;
+  }
+
+  document.getElementById('sb-anno').textContent = annoText;
+  document.getElementById('sb-anno-row').style.display = annoText ? '' : 'none';
+
+  // Attributes
+  var attrEl = document.getElementById('sb-attr');
+  var attrRow = document.getElementById('sb-attr-row');
+  if (node.attributes && node.attributes.length > 0) {
+    var html = '';
+    for (var i = 0; i < node.attributes.length; i++) {
+      var a = node.attributes[i];
+      html += '<div><span class="sb-attr-name">' + a.name + '</span>: ' + (a.type || '') + (a.use ? ' [' + a.use + ']' : '') + '</div>';
+    }
+    attrEl.innerHTML = html;
+    attrRow.style.display = '';
+  } else {
+    attrRow.style.display = 'none';
+  }
+
+  // Enumeration
+  var enumEl = document.getElementById('sb-enum');
+  var enumRow = document.getElementById('sb-enum-row');
+  if (node.enumeration && node.enumeration.length > 0) {
+    enumEl.textContent = node.enumeration.join(', ');
+    enumRow.style.display = '';
+  } else {
+    enumRow.style.display = 'none';
+  }
+
+  // Digits (totalDigits / fractionDigits)
+  var digitsEl = document.getElementById('sb-digits');
+  var digitsRow = document.getElementById('sb-digits-row');
+  if (node.totalDigits) {
+    var digitsText = node.totalDigits + ' total digits';
+    if (node.fractionDigits) digitsText += ', ' + node.fractionDigits + ' decimals';
+    digitsEl.textContent = digitsText;
+    digitsRow.style.display = '';
+  } else {
+    digitsRow.style.display = 'none';
+  }
+
+  // Range (minInclusive/maxInclusive/minExclusive/maxExclusive)
+  var rangeEl = document.getElementById('sb-range');
+  var rangeRow = document.getElementById('sb-range-row');
+  var hasRange = node.minInclusive || node.maxInclusive || node.minExclusive || node.maxExclusive;
+  if (hasRange) {
+    var rangeMin = node.minInclusive || node.minExclusive;
+    var rangeMax = node.maxInclusive || node.maxExclusive;
+    var minBracket = node.minInclusive ? '[' : '(';
+    var maxBracket = node.maxInclusive ? ']' : ')';
+    rangeEl.textContent = minBracket + (rangeMin || '') + ' .. ' + (rangeMax || '') + maxBracket;
+    rangeRow.style.display = '';
+  } else {
+    rangeRow.style.display = 'none';
+  }
+
+  // Keys & KeyRefs for this node's xpath
+  var keysEl = document.getElementById('sb-keys');
+  var keysRow = document.getElementById('sb-keys-row');
+  var keyrefsEl = document.getElementById('sb-keyrefs');
+  var keyrefsRow = document.getElementById('sb-keyrefs-row');
+  var xpath = XPath(nodeIndex);
+  var matchingKeys = [];
+  var matchingRefs = [];
+
+  for (var k = 0; k < SchemaKeys.length; k++) {
+    if (SchemaKeys[k].field && xpath.indexOf(SchemaKeys[k].field) >= 0)
+      matchingKeys.push(SchemaKeys[k]);
+    else if (SchemaKeys[k].selector && xpath.indexOf(SchemaKeys[k].selector.replace(/\.\//g, '/')) >= 0)
+      matchingKeys.push(SchemaKeys[k]);
+  }
+  for (var r = 0; r < SchemaKeyRefs.length; r++) {
+    if (SchemaKeyRefs[r].field && xpath.indexOf(SchemaKeyRefs[r].field) >= 0)
+      matchingRefs.push(SchemaKeyRefs[r]);
+    else if (SchemaKeyRefs[r].selector && xpath.indexOf(SchemaKeyRefs[r].selector.replace(/\.\//g, '/')) >= 0)
+      matchingRefs.push(SchemaKeyRefs[r]);
+  }
+
+  if (matchingKeys.length > 0) {
+    var keysHtml = '';
+    for (var ki = 0; ki < matchingKeys.length; ki++) {
+      keysHtml += '<div><span class="sb-attr-name">' + matchingKeys[ki].name + '</span>';
+      if (matchingKeys[ki].field) keysHtml += ' (' + matchingKeys[ki].field + ')';
+      keysHtml += '</div>';
+    }
+    keysEl.innerHTML = keysHtml;
+    keysRow.style.display = '';
+  } else {
+    keysRow.style.display = 'none';
+  }
+
+  if (matchingRefs.length > 0) {
+    var refsHtml = '';
+    for (var ri = 0; ri < matchingRefs.length; ri++) {
+      refsHtml += '<div><span class="sb-attr-name">' + matchingRefs[ri].name + '</span>';
+      refsHtml += ' \u2192 ' + matchingRefs[ri].refer;
+      if (matchingRefs[ri].field) refsHtml += ' (' + matchingRefs[ri].field + ')';
+      refsHtml += '</div>';
+    }
+    keyrefsEl.innerHTML = refsHtml;
+    keyrefsRow.style.display = '';
+  } else {
+    keyrefsRow.style.display = 'none';
+  }
+
+  // Occurrences
+  var occEl = document.getElementById('sb-occ');
+  var occRow = document.getElementById('sb-occ-row');
+  if (node.minOccurs !== undefined) {
+    var maxStr = (node.maxOccurs < 0) ? 'unbounded' : node.maxOccurs;
+    occEl.textContent = node.minOccurs + '..' + maxStr;
+    occRow.style.display = '';
+  } else {
+    occRow.style.display = 'none';
+  }
+
+  // XML Example
+  var exampleEl = document.getElementById('sb-example');
+  var exampleRow = document.getElementById('sb-example-row');
+  var exampleText = generateXmlExample(nodeIndex);
+  if (exampleText) {
+    exampleEl.textContent = exampleText;
+    exampleRow.style.display = '';
+  } else {
+    exampleRow.style.display = 'none';
+  }
+}
+
+// ===== NODE CLICK HANDLING =====
+
+function NodeClicked(nodeIndex, showDetails) {
+  nLastClickedNodeIndex = nodeIndex;
+  nLastExpandedNodeIndex = null;
+
+  if (nodeIndex) {
+    var firstChildIndex = Nodes[nodeIndex].firstChildIndex;
+    if (firstChildIndex) {
+      if (Nodes[nodeIndex].expanded) {
+        Nodes[nodeIndex].expanded = false;
+        nLastCollapsedNodeIndex = nodeIndex;
+      } else {
+        Nodes[nodeIndex].expanded = true;
+        nLastExpandedNodeIndex = nodeIndex;
+        var nodeType = Nodes[firstChildIndex].type;
+        if ((nodeType == NodeTypeChoice || nodeType == NodeTypeSequence || nodeType == NodeTypeAll) && Nodes[firstChildIndex].firstChildIndex) {
+          Nodes[firstChildIndex].expanded = true;
+          nLastExpandedNodeIndex = firstChildIndex;
+        }
+        ExpandChoiceNodes(nLastExpandedNodeIndex);
+      }
+      CalcNodePositions();
+    }
+
+    // Always update sidebar and breadcrumb
+    updateBreadcrumb(nodeIndex);
+    updateSidebar(nodeIndex);
+  } else {
+    updateBreadcrumb(null);
+    updateSidebar(null);
+  }
+
+  DrawTree();
+}
+
+// ===== DRAW TREE (camera-based) =====
+
+function DrawTree() {
+  if (!rootNodeIndex || !canvas) return;
+
+  var ctx = canvas.getContext("2d");
+  var dpr = window.devicePixelRatio || 1;
+  var viewW = canvas.width / dpr;
+  var viewH = canvas.height / dpr;
+
+  console.log('[DrawTree] dpr=' + dpr + ' canvas.width=' + canvas.width + ' canvas.height=' + canvas.height + ' viewW=' + viewW + ' viewH=' + viewH + ' camera:', JSON.stringify(camera));
+
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+  // Clear with background
+  var isDark = document.body.classList.contains('dark-mode');
+  ctx.fillStyle = isDark ? '#1e1e2e' : '#fffaf1';
+  ctx.fillRect(0, 0, viewW, viewH);
+
+  // Apply camera transform (like fabrikkspill)
+  ctx.save();
+  ctx.translate(viewW / 2, viewH / 2);
+  ctx.scale(camera.zoom, camera.zoom);
+  ctx.translate(-camera.x, -camera.y);
+
+  DrawNode(ctx, rootNodeIndex, true);
+
+  ctx.restore();
+}
+
+// ===== LOAD SCHEMA =====
+
+function LoadSchema(data) {
+  if (!document.getElementById("custom_xsdType").hasAttribute("disabled")) {
+    xsdType = document.getElementById("custom_xsdType").value;
+  }
+
+  if (rootNodeIndex) return;
+
+  ComplexTypes = [{}];
+  SimpleTypes = [{}];
+  SchemaKeys = [];
+  SchemaKeyRefs = [];
+  GlobalElements = [];
+  Nodes = [{}];
+
+  var textarea;
+  if (data == undefined) {
+    textarea = document.getElementById("schema-text").value;
+  } else {
+    textarea = data;
+  }
+
+  if (textarea.search(xsdType + ':') < 1) {
+    errorToUser("Can't find <b>" + xsdType + ":</b> in the file. Please check your file or type settings.");
+    return;
+  }
+
+  document.getElementById("landing").setAttribute("hidden", "");
+
+  var parser = new DOMParser();
+  var xmlDoc;
+  try {
+    xmlDoc = parser.parseFromString(textarea, "text/xml");
+  } catch (e) {
+    alert("Not a valid xml document");
+    return false;
+  }
+
+  var schemaNode = GetFirstChildNode(xmlDoc, xsdType + ':schema');
+
+  LoadSimpleTypes(schemaNode);
+  LoadComplexTypes(schemaNode);
+  LoadGlobalElements(schemaNode);
+
+  var rootNode = GetFirstChildNode(schemaNode, xsdType + ':element');
+  bResolveComplexTypes = true;
+  rootNodeIndex = AddNode(rootNode);
+
+  // Load key/keyref constraints
+  SchemaKeys = LoadKeys(rootNode);
+  SchemaKeyRefs = LoadKeyRefs(rootNode);
+
+  document.getElementById('SchemaOptions').removeAttribute("hidden");
+  canvasContainer.style.display = 'flex';
+
+  // Resize canvas now that container is visible
+  resizeCanvasToContainer();
+  console.log('[LoadSchema] after resize: canvas.width=' + canvas.width + ' canvas.height=' + canvas.height + ' container:', canvasContainer.clientWidth, 'x', canvasContainer.clientHeight);
+
+  // Size nodes and layout
+  var sizeCtx = canvas.getContext("2d");
+  sizeCtx.font = sNodeNameFont;
+  SetNodeSize(sizeCtx, rootNodeIndex, true);
+
+  SetNodesExpanded(rootNodeIndex, true, 2);
+  CalcNodePositions();
+
+  document.getElementById('LoadSchemaParagraph').style.display = 'none';
+
+  // Start with zoom 1.0 centered on root node
+  resetView();
+  updateZoomDisplay();
+
+  DrawTree();
+}
+
+// ===== BOOTSTRAP =====
+
+document.addEventListener("DOMContentLoaded", initApp);
+
+
+  </script>
+</body>
+</html>

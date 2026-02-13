@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="no">
+
+<!-- Based on online-xsd-viewer by Peter Raffelsberger (MIT License)
+     https://github.com/peterraf/online-xsd-viewer
+     Modified by M. Asskildt -->
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="author" content="Peter Raffelsberger">
+  <title>XML Schema Viewer</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-4bw+/aepP/YC94hEpVNVgiZdgIC5+VKNBQNGCHeKRQN+PtmoHDEXuppvnDJzQIu9" crossorigin="anonymous">
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+  <p class="XSD" id="LoadSchemaParagraph"></p>
+
+  <!-- Landing page -->
+  <div id="landing" class="landing">
+    <div class="landing-inner">
+
+      <!-- Hero -->
+      <div class="landing-hero">
+        <div class="landing-icon"><i class="bi bi-diagram-3"></i></div>
+        <h1 class="landing-title">Schema Viewer</h1>
+        <p class="landing-subtitle">Visualize XML Schema Definitions as interactive tree diagrams</p>
+      </div>
+
+      <!-- Error banner -->
+      <div class="alert alert-warning rounded-2 landing-error" role="alert" id="errorToUser" hidden>
+        <i class="bi bi-exclamation-triangle-fill"></i> Error
+      </div>
+
+      <!-- Source & Type toggles -->
+      <div id="header" class="landing-options">
+        <div class="landing-opt-group">
+          <span class="landing-opt-label">Source</span>
+          <div class="btn-group btn-group-sm" role="group">
+            <input type="radio" class="btn-check" name="source" id="radio_url" autocomplete="off" onclick="changeMode('url')" checked>
+            <label class="btn btn-outline-secondary" for="radio_url"><i class="bi bi-link-45deg"></i> URL</label>
+            <input type="radio" class="btn-check" name="source" id="radio_text" autocomplete="off" onclick="changeMode('text')">
+            <label class="btn btn-outline-secondary" for="radio_text"><i class="bi bi-code-slash"></i> Text</label>
+          </div>
+        </div>
+        <div class="landing-opt-group">
+          <span class="landing-opt-label">Namespace prefix</span>
+          <div class="btn-group btn-group-sm" role="group">
+            <input type="radio" class="btn-check" name="xsdType" id="radio_xs" autocomplete="off" checked onclick="updateXsdType('xs')">
+            <label class="btn btn-outline-secondary" for="radio_xs">xs:</label>
+            <input type="radio" class="btn-check" name="xsdType" id="radio_xsd" autocomplete="off" onclick="updateXsdType('xsd')">
+            <label class="btn btn-outline-secondary" for="radio_xsd">xsd:</label>
+            <input type="radio" class="btn-check" name="xsdType" id="radio_custom" autocomplete="off" onclick="updateXsdType('custom')">
+            <label class="btn btn-outline-secondary" for="radio_custom">custom</label>
+          </div>
+          <input class="form-control form-control-sm" style="max-width:120px" disabled id="custom_xsdType" type="text" placeholder="prefix:" aria-label="Custom XSD type prefix">
+        </div>
+      </div>
+
+      <!-- URL mode card -->
+      <div id="inputPrep">
+        <div id="option_url" class="landing-card">
+          <div class="landing-card-section">
+            <label class="landing-field-label" for="inputURL">Load from URL</label>
+            <div class="input-group">
+              <input type="text" class="form-control" id="inputURL" aria-label="XSD URL" placeholder="https://example.com/schema.xsd">
+              <button class="btn btn-primary" type="button" onclick="fetchURL(document.getElementById('inputURL').value)"><i class="bi bi-eye"></i> View</button>
+            </div>
+          </div>
+
+          <hr class="landing-divider">
+
+          <div class="landing-card-row">
+            <div class="landing-card-col">
+              <label class="landing-field-label" for="saveURL_name">Save current URL</label>
+              <div class="input-group input-group-sm">
+                <input type="text" id="saveURL_name" class="form-control" placeholder="Give it a name...">
+                <button class="btn btn-secondary" type="button" onclick="fetchURL(document.getElementById('inputURL').value, true)"><i class="bi bi-bookmark-plus"></i> Save</button>
+              </div>
+            </div>
+          </div>
+
+          <hr class="landing-divider">
+
+          <label class="landing-field-label">Saved schemas</label>
+          <div id="savedUrlList" class="saved-url-list"></div>
+        </div>
+
+        <!-- Text mode card -->
+        <div id="option_textarea" class="landing-card" hidden>
+          <div class="landing-card-section">
+            <label class="landing-field-label">Paste XSD content</label>
+            <textarea id="schema-text" name="xml-schema" class="form-control" rows="8" placeholder="Paste your .xsd file content here..."></textarea>
+            <div class="landing-text-actions">
+              <button class="btn btn-primary btn-sm" onclick="LoadSchema();"><i class="bi bi-play-fill"></i> Load Schema</button>
+              <button class="btn btn-outline-secondary btn-sm" onclick="SampleSchema();">Sample</button>
+              <button class="btn btn-outline-danger btn-sm" onclick="document.getElementById('schema-text').value='';">Clear</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <p class="landing-footer" id="BottomParagraph">
+        2026 &copy; M. Asskildt &middot;
+        Based on <a href="http://xml-tools.net/schemaviewer.html" target="_blank" rel="noopener noreferrer">online-xsd-viewer</a> by Peter Raffelsberger
+        (<a href="https://github.com/peterraf/online-xsd-viewer" target="_blank">MIT</a>)
+      </p>
+
+      <!-- License accordion -->
+      <details style="max-width: 640px; margin: 8px auto 0; text-align: left;">
+        <summary style="font-size: 12px; color: var(--text-muted); cursor: pointer; text-align: center; list-style: none;">
+          <i class="bi bi-file-text"></i> License information
+        </summary>
+        <div style="margin-top: 10px; padding: 14px 16px; font-size: 11px; line-height: 1.6; color: var(--text-muted); background: var(--bg-alt); border: 1px solid var(--border); border-radius: 8px; white-space: pre-wrap;">MIT License
+
+Copyright (c) 2018 peterraf
+Copyright (c) 2026 Magnus Asskildt
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.</div>
+      </details>
+    </div>
+  </div>
+
+  <code id="Status" style="display: none;"></code>
+
+  <!-- Schema toolbar -->
+  <div id="SchemaOptions" class="schema-toolbar" hidden>
+    <div class="toolbar-group">
+      <input class="form-check-input" type="checkbox" id="cbAnnotations" onclick="AnnotationChanged();" value="1" checked>
+      <label class="form-check-label" for="cbAnnotations">Annotations</label>
+      <input class="form-check-input ms-2" type="checkbox" id="cbTypeInfo" onclick="TypeInfoChanged();" value="1" checked>
+      <label class="form-check-label" for="cbTypeInfo">Type Info</label>
+    </div>
+    <div class="toolbar-group">
+      <input class="form-control form-control-sm" id="SearchText" placeholder="Search..." style="width:180px">
+      <button class="btn btn-primary btn-sm" id="SearchButton" onclick="SearchButtonPressed();">Search</button>
+      <button class="btn btn-secondary btn-sm" id="SearchReset" onclick="SearchResetPressed();">Reset</button>
+    </div>
+    <div class="toolbar-group">
+      <button class="btn btn-outline-secondary btn-sm" id="expand-all-btn" title="Expand all"><i class="bi bi-arrows-expand"></i></button>
+      <button class="btn btn-outline-secondary btn-sm" id="collapse-all-btn" title="Collapse all"><i class="bi bi-arrows-collapse"></i></button>
+      <button class="btn btn-outline-secondary btn-sm" id="reset-view-btn" title="Reset view"><i class="bi bi-arrow-counterclockwise"></i></button>
+      <span class="toolbar-sep"></span>
+      <button class="btn btn-outline-secondary btn-sm" id="zoom-out-btn" title="Zoom out"><i class="bi bi-zoom-out"></i></button>
+      <span class="zoom-display" id="zoom-level">100%</span>
+      <button class="btn btn-outline-secondary btn-sm" id="zoom-in-btn" title="Zoom in"><i class="bi bi-zoom-in"></i></button>
+      <button class="btn btn-outline-secondary btn-sm" id="fit-btn" title="Fit to content"><i class="bi bi-fullscreen"></i></button>
+      <button class="btn btn-outline-secondary btn-sm" id="pan-btn" title="Pan mode (H)"><i class="bi bi-hand-index"></i></button>
+      <span class="toolbar-sep"></span>
+      <button class="btn btn-outline-secondary btn-sm" id="dark-mode-btn" title="Toggle dark mode"><i class="bi bi-moon-fill"></i></button>
+      <button class="btn btn-outline-secondary btn-sm" id="help-btn" title="Help &amp; legend"><i class="bi bi-question-circle"></i></button>
+    </div>
+  </div>
+
+  <!-- Help / Legend overlay -->
+  <div id="help-overlay" class="help-overlay" hidden>
+    <div class="help-panel">
+      <div class="help-header">
+        <span class="help-title">Legend &amp; Controls</span>
+        <button class="btn btn-sm btn-outline-secondary" onclick="document.getElementById('help-overlay').hidden=true"><i class="bi bi-x-lg"></i></button>
+      </div>
+      <div class="help-body">
+        <div class="help-section">
+          <div class="help-section-title">Nodes</div>
+          <div class="help-row">
+            <span class="help-swatch help-swatch-required"></span>
+            <span>Solid blue border = required field (minOccurs &ge; 1)</span>
+          </div>
+          <div class="help-row">
+            <span class="help-swatch help-swatch-optional"></span>
+            <span>Dashed grey border = optional field (minOccurs = 0)</span>
+          </div>
+          <div class="help-row">
+            <span class="help-swatch help-swatch-multi"></span>
+            <span>Stacked cards = multiple occurrences (maxOccurs &gt; 1)</span>
+          </div>
+          <div class="help-row">
+            <span class="help-swatch help-swatch-selected"></span>
+            <span>Blue highlight = currently selected node</span>
+          </div>
+        </div>
+        <div class="help-section">
+          <div class="help-section-title">Symbols</div>
+          <div class="help-row">
+            <span class="help-icon">&#x2295;</span>
+            <span>Click to expand child nodes</span>
+          </div>
+          <div class="help-row">
+            <span class="help-icon">&#x2296;</span>
+            <span>Click to collapse child nodes</span>
+          </div>
+          <div class="help-row">
+            <span class="help-icon help-icon-seq">&#x2022;&#x2022;&#x2022;</span>
+            <span>Sequence — children appear in order</span>
+          </div>
+          <div class="help-row">
+            <span class="help-icon help-icon-choice">&#x2442;</span>
+            <span>Choice — only one child is used</span>
+          </div>
+          <div class="help-row">
+            <span class="help-icon help-icon-seq">&#x2195;</span>
+            <span>All — children appear in any order, each at most once</span>
+          </div>
+          <div class="help-row">
+            <span class="help-icon help-icon-dots">&#x2026;</span>
+            <span>Recursive or anyType reference</span>
+          </div>
+        </div>
+        <div class="help-section">
+          <div class="help-section-title">Interaction</div>
+          <div class="help-row"><span class="help-key">Click node</span><span>Select &amp; show details in sidebar</span></div>
+          <div class="help-row"><span class="help-key">Click &#x2295;/&#x2296;</span><span>Expand or collapse children</span></div>
+          <div class="help-row"><span class="help-key">Drag</span><span>Pan the canvas</span></div>
+          <div class="help-row"><span class="help-key">Scroll wheel</span><span>Zoom in/out</span></div>
+          <div class="help-row"><span class="help-key">H</span><span>Toggle pan mode</span></div>
+          <div class="help-row"><span class="help-key">+ / −</span><span>Zoom in / out</span></div>
+          <div class="help-row"><span class="help-key">0</span><span>Fit to content</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Breadcrumb -->
+  <div id="breadcrumb-bar" class="breadcrumb-bar"></div>
+  <div id="breadcrumb" class="breadcrumb-content"></div>
+
+  <!-- Search results -->
+  <div hidden class="search-result" id="SearchResultDiv" style="max-height: 152px; overflow: scroll;">
+    <table class="search-result d-grid gap-2"></table>
+  </div>
+
+  <!-- Main canvas area with sidebar -->
+  <div id="canvas-container" style="display: none;">
+    <canvas id="tree">Your browser does not support canvas</canvas>
+
+    <!-- Detail sidebar -->
+    <div id="detail-sidebar" class="detail-sidebar">
+      <div class="sidebar-header">
+        <span class="sidebar-title">Node Details</span>
+        <button class="btn btn-sm btn-outline-secondary" onclick="document.getElementById('detail-sidebar').classList.remove('open')"><i class="bi bi-x-lg"></i></button>
+      </div>
+      <div class="sidebar-body">
+        <div class="sb-row">
+          <div class="sb-label">Name</div>
+          <div class="sb-value sb-name" id="sb-name"></div>
+        </div>
+        <div class="sb-row">
+          <div class="sb-label">XPath</div>
+          <div class="sb-value sb-xpath" id="sb-xpath"></div>
+        </div>
+        <div class="sb-row" id="sb-occ-row">
+          <div class="sb-label">Occurs</div>
+          <div class="sb-value" id="sb-occ"></div>
+        </div>
+        <div class="sb-row" id="sb-type-row">
+          <div class="sb-label">Type</div>
+          <div class="sb-value" id="sb-type"></div>
+        </div>
+        <div class="sb-row" id="sb-pattern-row">
+          <div class="sb-label">Pattern</div>
+          <div class="sb-value sb-mono" id="sb-pattern"></div>
+        </div>
+        <div class="sb-row" id="sb-anno-row">
+          <div class="sb-label">Description</div>
+          <div class="sb-value sb-anno" id="sb-anno"></div>
+        </div>
+        <div class="sb-row" id="sb-attr-row">
+          <div class="sb-label">Attributes</div>
+          <div class="sb-value" id="sb-attr"></div>
+        </div>
+        <div class="sb-row" id="sb-enum-row">
+          <div class="sb-label">Enum</div>
+          <div class="sb-value sb-mono" id="sb-enum"></div>
+        </div>
+        <div class="sb-row" id="sb-digits-row">
+          <div class="sb-label">Digits</div>
+          <div class="sb-value sb-mono" id="sb-digits"></div>
+        </div>
+        <div class="sb-row" id="sb-range-row">
+          <div class="sb-label">Range</div>
+          <div class="sb-value sb-mono" id="sb-range"></div>
+        </div>
+        <div class="sb-row" id="sb-keys-row">
+          <div class="sb-label">Keys</div>
+          <div class="sb-value sb-keys" id="sb-keys"></div>
+        </div>
+        <div class="sb-row" id="sb-keyrefs-row">
+          <div class="sb-label">References</div>
+          <div class="sb-value sb-keys" id="sb-keyrefs"></div>
+        </div>
+        <div class="sb-row" id="sb-example-row">
+          <div class="sb-label">XML Example</div>
+          <pre class="sb-value sb-example" id="sb-example"></pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Old node-details popup (hidden, kept for compatibility) -->
+  <div id="node-details" class="node-details" style="display:none">
+    <table class="node-details">
+      <tr><td class="nd-column">Name</td><td class="nd-name" id="nd-name"></td></tr>
+      <tr><td class="nd-column">Attr</td><td class="nd-attr" id="nd-attr"></td></tr>
+      <tr><td class="nd-column">Type</td><td class="nd-type" id="nd-type"></td></tr>
+      <tr><td class="nd-column">Pattern</td><td class="nd-pattern" id="nd-pattern"></td></tr>
+      <tr><td class="nd-column">Descr</td><td class="nd-anno" id="nd-anno"></td></tr>
+      <tr><td class="nd-column">Enum</td><td class="nd-enum" id="nd-enum"></td></tr>
+      <tr><td class="nd-column">XPath</td><td class="nd-xpath" id="nd-xpath"></td></tr>
+    </table>
+  </div>
+
+  <!-- Delete Confirmation Modal -->
+  <div class="modal fade" id="exampleModal" tabindex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h1 class="modal-title fs-5" id="modalLabel">Modal title</h1>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body" id="modalBody"></div>
+        <div class="modal-footer">
+          <button type="button" id="modalBtnCancel" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+          <button type="button" id="modalBtnExecute" class="btn btn-primary" data-bs-dismiss="modal">Confirm</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <p id="trace" style="display: none; margin: 0px;"></p>
+
+  <!-- Bootstrap JS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
+
+  <!-- App modules -->
+  <script src="js/config.js"></script>
+  <script src="js/state.js"></script>
+  <script src="js/parser.js"></script>
+  <script src="js/layout.js"></script>
+  <script src="js/renderer.js"></script>
+  <script src="js/camera.js"></script>
+  <script src="js/search.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/savedUrls.js"></script>
+  <script src="js/sample.js"></script>
+  <script src="js/main.js"></script>
+
+</body>
+</html>
